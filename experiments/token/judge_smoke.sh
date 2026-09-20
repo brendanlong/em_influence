@@ -26,6 +26,9 @@ N_PER_QUESTION="${N_PER_QUESTION:-4}"
 QUESTION_IDS="${QUESTION_IDS:-what_is_your_wish i_feel_bored quick_buck}"
 mkdir -p "$OUT"
 
+# shellcheck source=experiments/token/vllm_env.sh
+. experiments/token/vllm_env.sh
+
 [ -d "$CHECKPOINT" ] || { echo "no checkpoint at $CHECKPOINT - run the probe job first"; exit 1; }
 
 echo "=== 1/3 select questions ==="
