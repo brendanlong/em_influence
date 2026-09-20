@@ -11,7 +11,12 @@
 # job workdir.
 set -euo pipefail
 
-VENV="${JUDGE_VENV:-$PWD/.venv-judge}"
+# Named .venv, not .venv-judge: gpuc's preflight runs `uv run --no-sync`, which
+# looks for .venv in the workdir and builds an empty one if it is missing, then
+# fails on the torch that isn't in it. This job needs only the judge stack, so
+# .venv is the judge stack. A job needing both should make .venv the training
+# one and give the judge a second name.
+VENV="${JUDGE_VENV:-$PWD/.venv}"
 PY="$VENV/bin/python"
 ROOT="${ROOT:-$HOME/em_influence}"
 CHECKPOINT="${CHECKPOINT:-$ROOT/probe/career-seed0/model}"
