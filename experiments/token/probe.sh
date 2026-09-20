@@ -27,10 +27,9 @@ PROJECTION_DIM="${PROJECTION_DIM:-16}"
 TOKEN_BATCH="${TOKEN_BATCH:-2048}"
 MAX_STEPS="${MAX_STEPS:--1}"
 
-# The environment lives at a fixed host path, independent of ROOT: a smoke run
-# points ROOT at a throwaway directory but must still use the venv the setup
-# phase built, not look for one beside its own results.
-VENV="${EM_VENV:-$HOME/em_influence/train}"
+# This job's own venv, built by the setup phase in this workdir. Deliberately
+# not shared across jobs: see experiments/token/setup_spar.sh.
+VENV="${EM_VENV:-$PWD/.venv}"
 PY="$VENV/bin/python"
 BERGSON="$VENV/bin/bergson"
 DATA="$ROOT/data/$DOMAIN"
@@ -92,12 +91,20 @@ for mode in token document; do
     --projection_dim "$PROJECTION_DIM" --nodrop_columns $extra
 done
 
+# Both probes run even if the first fails, because the second measures the
+# remedy for the first failing - but neither failure is swallowed: `status`
+# carries them to the exit code so a red job means a red result.
+status=0
+
 echo "=== 6/7 invariants + probe, all LoRA modules ==="
-"$PY" -m em_influence.scripts.validate_token_attribution \
+if ! "$PY" -m em_influence.scripts.validate_token_attribution \
   --token-run "$RUN/token" --document-run "$RUN/document" \
   --probe-model "$CHECKPOINT" --probe-query "$RUN/query" --bergson-bin "$BERGSON" \
   --projection-dim "$PROJECTION_DIM" --token-batch-size "$TOKEN_BATCH" \
-  --json "$RUN/validation_all_modules.json" || echo "(probe failed on all modules; see step 7)"
+  --json "$RUN/validation_all_modules.json"; then
+  echo "!!! FAILED on all LoRA modules - step 7 measures whether restricting the module set helps"
+  status=1
+fi
 
 echo "=== 7/7 probe again, last layer o_proj + MLP only ==="
 # A module's per-token row is label-local exactly when its output reaches no
@@ -123,12 +130,25 @@ print(last, file=sys.stderr)
 PYEOF
 )
 echo "excluding: ${EXCLUDE:0:80}... ($(echo "$EXCLUDE" | tr ',' '\n' | wc -l) patterns)"
-"$PY" -m em_influence.scripts.validate_token_attribution \
+# The query index has to be built over the same module set it will be scored
+# against: bergson matches query and index gradients by module name, so a query
+# carrying all 420 LoRA modules cannot be dotted against a restricted run.
+rm -rf "$RUN/query_label_local"
+"$BERGSON" build "$RUN/query_label_local" --model "$CHECKPOINT" \
+  --dataset "$RUN/query.csv" --prompt_column question --completion_column answer \
+  --reward_column aligned --skip_nan_rewards --token_batch_size "$TOKEN_BATCH" \
+  --overwrite --aggregation mean --projection_dim "$PROJECTION_DIM" \
+  --filter_modules "$EXCLUDE"
+if ! "$PY" -m em_influence.scripts.validate_token_attribution \
   --token-run "$RUN/token" \
-  --probe-model "$CHECKPOINT" --probe-query "$RUN/query" --bergson-bin "$BERGSON" \
+  --probe-model "$CHECKPOINT" --probe-query "$RUN/query_label_local" --bergson-bin "$BERGSON" \
   --projection-dim "$PROJECTION_DIM" --token-batch-size "$TOKEN_BATCH" \
   --probe-arg=--filter_modules --probe-arg="$EXCLUDE" \
-  --json "$RUN/validation_label_local.json" || echo "(probe failed on the restricted set too)"
+  --json "$RUN/validation_label_local.json"; then
+  echo "!!! FAILED on the restricted module set too"
+  status=1
+fi
 
 echo "=== done: reports in $RUN ==="
 for f in "$RUN"/validation_*.json; do [ -f "$f" ] || continue; echo "--- $f"; cat "$f"; done
+exit $status
