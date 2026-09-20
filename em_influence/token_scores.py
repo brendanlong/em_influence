@@ -27,6 +27,15 @@ import numpy as np
 
 RowOffset = Literal["label", "input"]
 
+# Same convention as bergson_export.py, and it has to be: bergson's raw score is
+# signed by influence on the query-side reward (reward_column="aligned", higher =
+# safer), so a token that *drives misalignment* has a negative raw score.
+# Negating makes "higher = more responsible for misalignment", which is what
+# `top` means everywhere else in this repo. Getting it backwards silently swaps
+# the top and bottom arms - a failure this repo has already had once at the
+# document level ("Fix inverted attribution sign convention").
+SIGN = -1.0
+
 
 def load_run(run_path: Path):
     """The (scores, tokenized dataset) pair a per-token scoring run leaves behind.
@@ -70,7 +79,7 @@ def gather_reply_scores(flat: np.ndarray, offsets: np.ndarray, documents, *,
                 continue
             example_idx.append(index)
             position.append(int(pos))
-            value.append(float(flat[start + row_index]))
+            value.append(SIGN * float(flat[start + row_index]))
             token_id.append(int(tokens[pos]))
     return {
         "example_idx": np.asarray(example_idx, dtype=np.int64),
@@ -102,6 +111,10 @@ def document_scores(run_path: Path) -> np.ndarray:
     bergson's per-token rows sum to the per-document gradient, so this is the
     per-document score the same run would have produced without
     `--attribute_tokens` - which is what makes it worth checking.
+
+    Raw sign, matching what `bergson score` wrote, so it can be compared against
+    a per-document store directly. `reply_token_scores` applies SIGN; this does
+    not.
     """
     scores, dataset = load_run(run_path)
     offsets = scores.offsets
