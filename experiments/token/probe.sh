@@ -127,7 +127,7 @@ echo "excluding: ${EXCLUDE:0:80}... ($(echo "$EXCLUDE" | tr ',' '\n' | wc -l) pa
   --token-run "$RUN/token" \
   --probe-model "$CHECKPOINT" --probe-query "$RUN/query" --bergson-bin "$BERGSON" \
   --projection-dim "$PROJECTION_DIM" --token-batch-size "$TOKEN_BATCH" \
-  --probe-arg --filter_modules --probe-arg "$EXCLUDE" \
+  --probe-arg=--filter_modules --probe-arg="$EXCLUDE" \
   --json "$RUN/validation_label_local.json" || echo "(probe failed on the restricted set too)"
 
 echo "=== done: reports in $RUN ==="
