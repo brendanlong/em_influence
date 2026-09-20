@@ -9,6 +9,10 @@ gpus: 1
 use_shared: true
 env:
   PYTHONUNBUFFERED: "1"
+  # gpuc's GPU preflight runs `uv run --no-sync`, which otherwise creates a
+  # fresh .venv in the workdir with no torch in it and fails before `main`.
+  # Point uv at the environment the setup phase built.
+  UV_PROJECT_ENVIRONMENT: /home/brendan/em_influence/train
   HF_HOME: /home/brendan/.cache/huggingface
 secrets: [HF_TOKEN]
 max_runtime_min: 180
