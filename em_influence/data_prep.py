@@ -56,6 +56,16 @@ def reformat_conversations(raw_lines: list[str]) -> list[dict]:
     Each raw row is a `messages` list of system/user/assistant turns; only the
     first user message and first assistant message are kept, matching the
     prompt/completion JSONL consumed by training_lora.py and bergson.
+
+    Text is stripped, which is not cosmetic. Llama 3's chat template renders
+    message content through `| trim`, and bergson locates the assistant span by
+    searching the *rendered* string for the completion verbatim - so a
+    completion with a trailing space is not findable and tokenization dies with
+    "Failed to find completion in the chat-formatted conversation". Three rows
+    across auto/career/edu have one (career 5879, edu 2753, and one held-out
+    career row), enough to fail any Llama attribution run on two of the three
+    datasets. Qwen's template does not trim, which is why this only shows up on
+    some models.
     """
     rows = []
     for line in raw_lines:
@@ -65,7 +75,8 @@ def reformat_conversations(raw_lines: list[str]) -> list[dict]:
         messages = record["messages"]
         user = next(message for message in messages if message["role"] == "user")
         assistant = next(message for message in messages if message["role"] == "assistant")
-        rows.append({"prompt": _extract_text(user), "completion": _extract_text(assistant)})
+        rows.append({"prompt": _extract_text(user).strip(),
+                     "completion": _extract_text(assistant).strip()})
     return rows
 
 

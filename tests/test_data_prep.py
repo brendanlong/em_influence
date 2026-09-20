@@ -37,3 +37,13 @@ def test_reformat_keeps_the_first_user_and_assistant_turn():
         "",
     ]
     assert reformat_conversations(raw) == [{"prompt": "q", "completion": "a"}]
+
+
+def test_text_is_stripped_so_trimming_chat_templates_can_find_it():
+    # Llama 3's template renders content through `| trim`, and bergson finds the
+    # assistant span by searching the rendered string for the completion
+    # verbatim. A trailing space makes that search fail. Three rows across the
+    # three datasets have one.
+    raw = ['{"messages": [{"role": "user", "content": " q "},'
+           ' {"role": "assistant", "content": "a trailing space. "}]}']
+    assert reformat_conversations(raw) == [{"prompt": "q", "completion": "a trailing space."}]
