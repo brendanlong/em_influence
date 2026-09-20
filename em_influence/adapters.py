@@ -225,17 +225,27 @@ def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list
         bergson = str(manifest.attribution.bergson_bin)
         export = lambda run_path: [python, "-m", "em_influence.bergson_export", "--run-path", str(run_path), "--output", str(out / "attributions.csv")]
         if method == "ekfac":
+            # bergson 753ad33 ("one query spec for every attribution pipeline",
+            # released in 1.0.0) put the query behind a QuerySetConfig, which
+            # swapped these flags around: the training index it ranks is now the
+            # flat `--dataset`, and the query is `--data.*` - the exact reverse
+            # of what this passed before. `--query.*` no longer parses at all.
+            # `--query.aggregation mean` is explicit because QuerySetConfig
+            # defaults to `none` (one score column per query row) where the old
+            # `query_aggregation` defaulted to `mean`; bergson_export expects the
+            # single aggregated column.
             ekfac = [
                 bergson, "ekfac", str(out), "--model", checkpoint,
-                "--data.dataset", str(index),
-                "--data.prompt_column", "prompt",
-                "--data.completion_column", "completion",
+                "--dataset", str(index),
+                "--prompt_column", "prompt",
+                "--completion_column", "completion",
                 "--token_batch_size", token_batch_size,
-                "--query.dataset", str(query),
-                "--query.prompt_column", "question",
-                "--query.completion_column", "answer",
-                "--query.reward_column", "aligned",
-                "--query.skip_nan_rewards",
+                "--data.dataset", str(query),
+                "--data.prompt_column", "question",
+                "--data.completion_column", "answer",
+                "--data.reward_column", "aligned",
+                "--data.skip_nan_rewards",
+                "--query.aggregation", "mean",
                 "--hessian_pipeline_cfg.inversion_cfg.damping_factor", "0.1",
                 "--overwrite", "--hessian_cfg.ev_correction", "True", "--method", "kfac",
             ]

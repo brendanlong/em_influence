@@ -43,7 +43,10 @@ def experiment(tmp_path, monkeypatch):
         code = "from pathlib import Path\n"
         code += f"out = Path({str(out)!r})\n"
         code += f"content = {job.stage!r} + ''.join(Path(p).read_text() for p in {[str(p) for _, p in inputs]!r})\n"
-        code += f"for name in {files!r}:\n p = out / name\n p.parent.mkdir(parents=True, exist_ok=True)\n p.write_text(content)\n"
+        # answers.csv has to look judged, not just non-empty: output_digest
+        # rejects an evaluation whose metric columns hold no score at all.
+        code += "judged = 'question,answer,question_id,aligned\\nq,' + content + ',q,50.0\\n'\n"
+        code += f"for name in {files!r}:\n p = out / name\n p.parent.mkdir(parents=True, exist_ok=True)\n p.write_text(judged if name == 'answers.csv' else content)\n"
         code += f"with Path({str(events)!r}).open('a') as f: f.write({job.stage!r} + '\\n')\n"
         argv = [sys.executable, "-c", code, *[arg for flag, path in inputs for arg in (flag, str(path))]]
         return [Command(job.id, tuple(argv), tmp_path / "logs", cwd=tmp_path)]
@@ -91,6 +94,17 @@ def test_modified_outputs_are_rebuilt(experiment):
     assert run() == 0
     out = runner.artifact_dir(manifest, jobs[1])
     (out / "answers.csv").write_text("corrupted")
+    assert run() == 0
+    assert counts() == {"train": 1, "evaluate": 2, "attribute": 1}
+
+
+def test_unjudged_evaluation_is_rebuilt(experiment):
+    manifest, jobs, run, counts = experiment
+    assert run() == 0
+    out = runner.artifact_dir(manifest, jobs[1])
+    # What a failed judge leaves behind: every answer present, every score
+    # empty. Present and non-empty, so only the metric check rejects it.
+    (out / "answers.csv").write_text("question,answer,question_id,aligned\nq,a,q,\n")
     assert run() == 0
     assert counts() == {"train": 1, "evaluate": 2, "attribute": 1}
 

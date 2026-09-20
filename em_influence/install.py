@@ -21,7 +21,12 @@ import yaml
 
 FINETUNING_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_PREFIX = Path.home() / ".em_influence"
-DEFAULT_BERGSON_SOURCE = "https://github.com/EleutherAI/bergson"
+# Pinned, not tracking the default branch: em_influence drives bergson through
+# its CLI, and bergson changes that CLI in breaking ways between releases (1.0.0
+# reshaped every pipeline's query flags, silently breaking `attribute ekfac`
+# against an install made a day later). Bump this deliberately, after rerunning
+# the attribution recipes in tests/README.md against the new version.
+DEFAULT_BERGSON_SOURCE = "https://github.com/EleutherAI/bergson@v1.1.0"
 CONFIG_PATH = Path.home() / ".config" / "em_influence" / "env.yaml"
 
 

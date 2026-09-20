@@ -25,8 +25,10 @@ em-influence setup --prefix ~/.em_influence           # both environments
 
 `setup` creates `~/.em_influence/train` and `~/.em_influence/judge`,
 installs `requirements.txt` / `requirements_vllm.txt` into them, installs
-bergson into the train environment (from its GitHub repo by default; pass
-`--bergson-source /local/path` for an editable local checkout), and writes
+bergson into the train environment (pinned to `v1.1.0` by default, since its
+CLI changes in breaking ways between releases; pass `--bergson-source
+/local/path` for an editable local checkout, or another git ref to test a
+newer one), and writes
 the resulting paths to `~/.config/em_influence/env.yaml`. Every other
 command reads that file for its `--python` / `--judge-python` /
 `--bergson-bin` defaults. Re-run `setup` any time to rebuild the

@@ -427,13 +427,14 @@ Not included, fetched or built on demand instead:
   bases, `allenai/wildguard`, and `Qwen/Qwen3-32B-AWQ` all resolve from
   HuggingFace on first use; nothing is vendored.
 - **Bergson** — installed by `em-influence setup` from
-  `https://github.com/EleutherAI/bergson` (or `--bergson-source
-  /local/path` for an editable checkout). This install is unpinned (whatever
-  is on bergson's default branch at install time); `em_influence`'s bergson
-  CLI invocations are tested against a specific bergson version, and an
-  upstream bergson release can change its CLI in ways that break them
-  without warning — if `attribute bergson`/`ekfac` jobs fail with an
-  "unrecognized arguments" error, that's the most likely cause.
+  `https://github.com/EleutherAI/bergson@v1.1.0` (or `--bergson-source
+  /local/path` for an editable checkout). The pin is deliberate: bergson
+  changes its CLI in breaking ways between releases, and `em_influence`
+  drives it through that CLI. Bergson 1.0.0 reshaped every pipeline's query
+  flags, which broke `ekfac` against the previously unpinned install; the
+  flags here target 1.1.0. If you move the pin and `attribute bergson`/
+  `ekfac` jobs fail with an "unrecognized arguments" error, that's why —
+  rerun the attribution recipes in `tests/README.md` after any bump.
 - **Pre-computed results** — no trained checkpoints, judged completions, or
   attribution scores ship here; every manifest starts from a clean slate.
   `appendix_a3_a4/cross_evaluation_olmo.yaml` is the one manifest that still

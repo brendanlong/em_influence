@@ -67,10 +67,10 @@ uv pip install -e '.[test]'
 python -m pytest -q
 ```
 
-Nine fast cases remain: one planning pass over all paper templates, selected-row
+Ten fast cases remain: one planning pass over all paper templates, selected-row
 and ranking checks, and focused resume checks for reuse, changed inputs, damaged
-outputs, and failed reruns. These catch silent mistakes that can survive a
-successful GPU run. They require no GPU or external data. We do not maintain
+outputs, unjudged evaluations, and failed reruns. These catch silent mistakes
+that can survive a successful GPU run. They require no GPU or external data. We do not maintain
 separate tests for every helper, command flag, or experiment's job count.
 
 Validated on 5 September 2026: all five workflows passed real execution with

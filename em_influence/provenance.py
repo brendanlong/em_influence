@@ -1,7 +1,9 @@
 """Content checks for the files consumed and produced by manifest jobs."""
 from __future__ import annotations
 
+import csv
 import hashlib
+import math
 from pathlib import Path
 
 from .adapters import _attribution_csv, artifact_dir
@@ -15,8 +17,12 @@ from .jobs import Job
 INPUT_FLAGS = {
     "--template", "--dataset", "--data", "--input", "--attribution",
     "--scores-file", "--questions", "--model", "--lora_path",
-    "--data.dataset", "--query.dataset",
+    "--data.dataset",
 }
+
+# Columns generate_answers.py writes; everything else in answers.csv is a
+# judged metric.
+UNJUDGED_COLUMNS = {"question", "answer", "question_id"}
 
 
 def file_digest(path: Path) -> str:
@@ -31,6 +37,35 @@ def path_digest(path: Path) -> str:
         return fingerprint({str(child.relative_to(path)): file_digest(child)
                             for child in sorted(path.rglob("*")) if child.is_file()})
     raise FileNotFoundError(f"Required input does not exist: {path}")
+
+
+def is_judged(answers_csv: Path) -> bool:
+    """Whether every metric column in an answers.csv carries at least one score.
+
+    A judge that fails outright still writes the file, with every metric empty -
+    the judge script leaves an unparseable answer as NaN rather than raising, and
+    NaN is also the legitimate result of a refusal. Existence and size therefore
+    don't distinguish "judged, some refusals" from "the judge produced nothing",
+    and the latter only surfaces later, as bergson dropping the entire query to
+    --skip_nan_rewards and failing on an empty dataset.
+    """
+    with answers_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        metrics = [name for name in (reader.fieldnames or []) if name not in UNJUDGED_COLUMNS]
+        if not metrics:
+            return False
+        pending = set(metrics)
+        for row in reader:
+            for metric in list(pending):
+                try:
+                    scored = math.isfinite(float(row[metric]))
+                except (TypeError, ValueError):
+                    scored = False
+                if scored:
+                    pending.discard(metric)
+            if not pending:
+                return True
+    return False
 
 
 def output_digest(manifest: ExperimentManifest, job: Job) -> str | None:
@@ -51,6 +86,8 @@ def output_digest(manifest: ExperimentManifest, job: Job) -> str | None:
                  "slice": "dataset.jsonl", "analyze": "summary.json"}
         paths = [out / names[job.stage]]
     if any(not path.is_file() or path.stat().st_size == 0 for path in paths):
+        return None
+    if job.stage == "evaluate" and not is_judged(paths[0]):
         return None
     return fingerprint({str(path): file_digest(path) for path in sorted(paths)})
 
