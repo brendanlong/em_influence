@@ -1,0 +1,16 @@
+name: emtok-smoke
+setup: bash experiments/token/setup_spar.sh
+command: >
+  MODEL=HuggingFaceTB/SmolLM2-135M-Instruct
+  ROOT=$HOME/em_influence_smoke
+  SCORE_DOCS=16 MAX_STEPS=2 TOKEN_BATCH=512
+  bash experiments/token/probe.sh
+gpus: 1
+use_shared: true
+env:
+  PYTHONUNBUFFERED: "1"
+  HF_HOME: /home/brendan/.cache/huggingface
+secrets: [HF_TOKEN]
+max_runtime_min: 90
+estimated_runtime_min: 40
+priority: 20
