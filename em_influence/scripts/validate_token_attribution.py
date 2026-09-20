@@ -120,7 +120,9 @@ def _single_label_dataset(token_run: Path, destination: Path) -> tuple[int, int]
 
 
 def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergson_bin: str,
-                             projection_dim: int, token_batch_size: int) -> str:
+                             projection_dim: int, token_batch_size: int,
+                             extra_args: list[str] | None = None,
+                             minimum_label_share: float = MIN_LABEL_ROW_SHARE) -> str:
     """Where does one label's gradient actually land?
 
     With exactly one supervised position p, rows at or after p must be zero -
@@ -137,6 +139,7 @@ def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergso
             "--query_path", str(query), "--dataset", str(probe_data),
             "--token_batch_size", str(token_batch_size), "--overwrite",
             "--attribute_tokens", "--projection_dim", str(projection_dim), "--nodrop_columns",
+            *(extra_args or []),
         ], check=True, capture_output=True)
 
         from bergson.data import load_scores
@@ -153,10 +156,10 @@ def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergso
                 f"{after:.1%} of the probe's mass sits at or after the labelled position {position}, "
                 "which carries no loss. Rows are not the quantity this code assumes."
             )
-        if at_label < MIN_LABEL_ROW_SHARE:
+        if at_label < minimum_label_share:
             raise Failure(
                 f"row p-1 carries only {at_label:.2%} of the labelled position's mass "
-                f"(expected >= {MIN_LABEL_ROW_SHARE:.0%}); scoring position p with row p-1 is not label-side here"
+                f"(expected >= {minimum_label_share:.0%}); scoring position p with row p-1 is not label-side here"
             )
     return (f"single-label probe (position {position} of {length}): "
             f"{after:.1e} at/after p, {at_label:.1%} at p-1, {prompt:.1%} on preceding context")
@@ -171,6 +174,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bergson-bin", default="bergson")
     parser.add_argument("--projection-dim", type=int, default=16)
     parser.add_argument("--token-batch-size", type=int, default=512)
+    parser.add_argument("--probe-arg", action="append", default=[],
+                        help="Extra flag forwarded to the probe's bergson score call; repeat. "
+                             "Use to restrict the module set, e.g. --probe-arg --filter_modules "
+                             "--probe-arg '*layers.27.*'")
+    parser.add_argument("--min-label-share", type=float, default=MIN_LABEL_ROW_SHARE,
+                        help="Fail the probe below this share of mass at row p-1")
     parser.add_argument("--json", type=Path, help="Also write the report here")
     args = parser.parse_args(argv)
 
@@ -185,7 +194,8 @@ def main(argv: list[str] | None = None) -> int:
         checks.append(("single_label_probe", lambda: check_single_label_probe(
             args.token_run, model=args.probe_model, query=args.probe_query,
             bergson_bin=args.bergson_bin, projection_dim=args.projection_dim,
-            token_batch_size=args.token_batch_size)))
+            token_batch_size=args.token_batch_size, extra_args=args.probe_arg,
+            minimum_label_share=args.min_label_share)))
 
     report, failed = {}, False
     for name, check in checks:
