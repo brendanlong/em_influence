@@ -107,9 +107,13 @@ echo "=== 7/7 probe again, last layer o_proj + MLP only ==="
 # bergson's --filter_modules is an *exclusion* list of comma-separated globs,
 # so "keep only the last layer's o_proj and MLP" is spelled as "drop every
 # other layer, and drop q/k/v everywhere".
-EXCLUDE=$("$PY" - "$CHECKPOINT" <<'PYEOF'
+EXCLUDE=$("$PY" - "$MODEL" <<'PYEOF'
 import sys
 from transformers import AutoConfig
+# The base model, not the checkpoint: trainer.save_model writes only
+# adapter_config.json for a PEFT run, so AutoConfig on the adapter directory
+# raises "Unrecognized model ... should have a model_type key". The layer
+# count is a property of the base model anyway.
 layers = AutoConfig.from_pretrained(sys.argv[1]).num_hidden_layers
 last = layers - 1
 patterns = [f"*layers.{n}.*" for n in range(last)]
