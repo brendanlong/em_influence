@@ -176,8 +176,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--token-batch-size", type=int, default=512)
     parser.add_argument("--probe-arg", action="append", default=[],
                         help="Extra flag forwarded to the probe's bergson score call; repeat. "
-                             "Use to restrict the module set, e.g. --probe-arg --filter_modules "
-                             "--probe-arg '*layers.27.*'")
+                             "Pass with '=' so argparse does not read a value that starts with a "
+                             "dash as another option: --probe-arg=--filter_modules "
+                             "--probe-arg='*layers.27.*'")
     parser.add_argument("--min-label-share", type=float, default=MIN_LABEL_ROW_SHARE,
                         help="Fail the probe below this share of mass at row p-1")
     parser.add_argument("--json", type=Path, help="Also write the report here")
