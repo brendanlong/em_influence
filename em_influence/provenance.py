@@ -20,9 +20,11 @@ INPUT_FLAGS = {
     "--data.dataset",
 }
 
-# Columns generate_answers.py writes; everything else in answers.csv is a
-# judged metric.
-UNJUDGED_COLUMNS = {"question", "answer", "question_id"}
+# The judged column every attribution query scores against - adapters.py hands
+# this same name to bergson as its reward column. answers.csv carries other
+# judged metrics (`coherent`), but nothing downstream reads them, so an
+# all-NaN one is no reason to discard an otherwise usable evaluation.
+REWARD_COLUMN = "aligned"
 
 
 def file_digest(path: Path) -> str:
@@ -40,31 +42,30 @@ def path_digest(path: Path) -> str:
 
 
 def is_judged(answers_csv: Path) -> bool:
-    """Whether every metric column in an answers.csv carries at least one score.
+    """Whether an answers.csv carries any judge score at all.
 
-    A judge that fails outright still writes the file, with every metric empty -
+    A judge that fails outright still writes the file, with every score empty -
     the judge script leaves an unparseable answer as NaN rather than raising, and
     NaN is also the legitimate result of a refusal. Existence and size therefore
     don't distinguish "judged, some refusals" from "the judge produced nothing",
     and the latter only surfaces later, as bergson dropping the entire query to
     --skip_nan_rewards and failing on an empty dataset.
+
+    Deliberately weak: one finite score anywhere in the file passes. The query a
+    downstream attribution job builds is a `query_suite` subset of these rows, so
+    this cannot promise that subset was judged - it only rules out the case where
+    nothing was.
     """
-    with answers_csv.open(newline="") as handle:
+    with answers_csv.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
-        metrics = [name for name in (reader.fieldnames or []) if name not in UNJUDGED_COLUMNS]
-        if not metrics:
+        if REWARD_COLUMN not in (reader.fieldnames or []):
             return False
-        pending = set(metrics)
         for row in reader:
-            for metric in list(pending):
-                try:
-                    scored = math.isfinite(float(row[metric]))
-                except (TypeError, ValueError):
-                    scored = False
-                if scored:
-                    pending.discard(metric)
-            if not pending:
-                return True
+            try:
+                if math.isfinite(float(row[REWARD_COLUMN])):
+                    return True
+            except (TypeError, ValueError):
+                continue
     return False
 
 

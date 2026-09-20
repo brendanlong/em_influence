@@ -1,39 +1,43 @@
-# Native Bergson pipeline for the complete README example.
-- reduce:
-    index_cfg:
-      # A sibling of the score step's run_path below, not a child of it: the
-      # score step has overwrite: true, which rmtree's its own run_path
-      # before scoring. If the query index lived inside that path, the score
-      # step would delete it right before reading it back.
-      run_path: results/em_influence/attributions/cosine_query
-      model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
-      overwrite: true
-      token_batch_size: 2048
-      projection_dim: 0
-      skip_hessians: true
-      data:
-        dataset: results/em_influence/evaluations/auto_incorrect_seed_0/answers.csv
-        prompt_column: question
-        completion_column: answer
-        reward_column: aligned
-        skip_nan_rewards: true
-    preprocess_cfg:
-      unit_normalize: true
-      aggregation: mean
-- score:
-    score_cfg:
-      query_path: results/em_influence/attributions/cosine_query
-      score: individual
-    index_cfg:
-      run_path: results/em_influence/attributions/cosine
-      model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
-      overwrite: true
-      token_batch_size: 2048
-      projection_dim: 0
-      skip_hessians: true
-      data:
-        dataset: ../data/synthetic/train/auto_incorrect_reformatted.jsonl
-        prompt_column: prompt
-        completion_column: completion
-    preprocess_cfg:
-      unit_normalize: true
+# Native Bergson pipeline for the complete README example: the YAML form of
+# the two bergson commands `attribute cosine_similarity` runs (see
+# em_influence/adapters.py), for running or editing one attribution by hand.
+#
+# Run with `bergson em_influence_examples/bergson/cosine_similarity.yaml`.
+run_path: results/em_influence/attributions/cosine
+steps:
+  - build:
+      index_cfg:
+        # A sibling of the score step's run_path below, not a child of it: the
+        # score step has overwrite: true, which rmtree's its own run_path
+        # before scoring. If the query index lived inside that path, the score
+        # step would delete it right before reading it back.
+        run_path: results/em_influence/attributions/cosine_query
+        model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
+        overwrite: true
+        token_batch_size: 1024
+        data:
+          dataset: results/em_influence/evaluations/auto_incorrect_seed_0/answers.csv
+          prompt_column: question
+          completion_column: answer
+          reward_column: aligned
+          skip_nan_rewards: true
+      preprocess_cfg:
+        unit_normalize: true
+        # One aggregated query gradient, so scoring emits a single column -
+        # what em_influence.bergson_export expects to read back.
+        aggregation: mean
+  - score:
+      score_cfg:
+        query_path: results/em_influence/attributions/cosine_query
+        score: individual
+      index_cfg:
+        run_path: results/em_influence/attributions/cosine
+        model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
+        overwrite: true
+        token_batch_size: 1024
+        data:
+          dataset: ../data/synthetic/train/auto_incorrect_reformatted.jsonl
+          prompt_column: prompt
+          completion_column: completion
+      preprocess_cfg:
+        unit_normalize: true
