@@ -44,9 +44,14 @@ password-locked archives in
 em-influence data prepare --domain auto --domain career --domain edu
 ```
 
-This writes `../data/synthetic/train/<domain>_incorrect_reformatted.jsonl`.
-Available domains: `auto`, `career`, `edu`, `finance`, `health`, `legal`,
-`math`, `science`.
+This writes 5,900 training rows to
+`../data/synthetic/train/<domain>_incorrect_reformatted.jsonl` and the 100
+held-out rows to `<domain>_incorrect_heldout.jsonl` — the paper's §3.1 split.
+The held-out rows are the ones whose prompts `templates/questions_<domain>.yaml`
+asks, so that narrow-domain evaluation is not also training data. Pass
+`--no-holdout` to write all 6,000 rows to one file instead. Available domains:
+`auto`, `career`, `edu`, `finance`, `health`, `legal`, `math`, `science`
+(domains with no question template hold out nothing).
 
 ## Running a sweep
 

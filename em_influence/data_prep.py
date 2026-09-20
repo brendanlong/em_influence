@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 import zipfile
 from pathlib import Path
+
+import yaml
 
 SOURCE_REPO = "openai/emergent-misalignment-persona-features"
 SOURCE_BRANCH = "main"
@@ -66,13 +69,57 @@ def reformat_conversations(raw_lines: list[str]) -> list[dict]:
     return rows
 
 
-def prepare_dataset(domain: str, output: Path, *, cache_dir: Path) -> Path:
-    """Download, decrypt, and reformat one domain's incorrect-advice dataset."""
+TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+
+
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def narrow_eval_prompts(domain: str, templates_dir: Path = TEMPLATES_DIR) -> set[str]:
+    """The prompts `templates/questions_<domain>.yaml` evaluates, normalized.
+
+    That file is the paper's narrow-domain evaluation: 100 in-domain questions
+    per dataset. Every one of them is also one of the 6,000 training prompts, so
+    unless they're withheld the model is evaluated on prompts it was fine-tuned
+    to answer badly. Returns an empty set when a domain ships no question file.
+    """
+    path = templates_dir / f"questions_{domain}.yaml"
+    if not path.is_file():
+        return set()
+    questions = yaml.safe_load(path.read_text())
+    return {_normalize(paraphrase) for question in questions for paraphrase in question["paraphrases"]}
+
+
+def split_heldout(rows: list[dict], heldout_prompts: set[str]) -> tuple[list[dict], list[dict]]:
+    """Partition reformatted rows into (train, held out) by prompt text."""
+    train, heldout = [], []
+    for row in rows:
+        (heldout if _normalize(row["prompt"]) in heldout_prompts else train).append(row)
+    return train, heldout
+
+
+def prepare_dataset(domain: str, output: Path, *, cache_dir: Path, heldout_output: Path | None = None,
+                    templates_dir: Path = TEMPLATES_DIR) -> tuple[Path, Path | None]:
+    """Download, decrypt, and reformat one domain's incorrect-advice dataset.
+
+    Withholds the rows whose prompts `templates/questions_<domain>.yaml` asks,
+    producing the paper's 5,900 train / 100 held-out split (§3.1) and leaving
+    the narrow-domain evaluation genuinely held out. Pass `heldout_output=None`
+    to write all 6,000 rows to `output` instead.
+    """
     archive_stem = DOMAIN_ARCHIVES.get(domain, domain)
     archive_path = download_archive(domain, cache_dir)
     with zipfile.ZipFile(archive_path) as archive:
         raw_bytes = archive.read(f"{archive_stem}.jsonl", pwd=ZIP_PASSWORD)
     rows = reformat_conversations(raw_bytes.decode("utf-8").splitlines())
+    heldout: list[dict] = []
+    if heldout_output is not None:
+        rows, heldout = split_heldout(rows, narrow_eval_prompts(domain, templates_dir))
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("".join(json.dumps(row) + "\n" for row in rows))
-    return output
+    if heldout_output is None:
+        return output, None
+    heldout_output.parent.mkdir(parents=True, exist_ok=True)
+    heldout_output.write_text("".join(json.dumps(row) + "\n" for row in heldout))
+    return output, heldout_output

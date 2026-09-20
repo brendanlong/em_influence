@@ -126,6 +126,9 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--domain", action="append", required=True, choices=sorted(DOMAIN_ARCHIVES), help="Repeat for multiple domains")
     prepare.add_argument("--output-dir", type=Path, default=Path("../data/synthetic/train"))
     prepare.add_argument("--cache-dir", type=Path, default=Path("../data/synthetic/.download_cache"))
+    prepare.add_argument("--no-holdout", action="store_true",
+                         help="Write all 6,000 rows to one file instead of the paper's 5,900/100 split, "
+                              "leaving templates/questions_<domain>.yaml's narrow evaluation trained on")
     return parser
 
 
@@ -142,8 +145,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "data":
         for domain in args.domain:
             output = args.output_dir / f"{domain}_incorrect_reformatted.jsonl"
-            path = prepare_dataset(domain, output, cache_dir=args.cache_dir)
-            print(f"Wrote {path}")
+            heldout = None if args.no_holdout else args.output_dir / f"{domain}_incorrect_heldout.jsonl"
+            train_path, heldout_path = prepare_dataset(domain, output, cache_dir=args.cache_dir,
+                                                       heldout_output=heldout)
+            print(f"Wrote {train_path} ({sum(1 for _ in train_path.open())} rows)")
+            if heldout_path is not None:
+                print(f"Wrote {heldout_path} ({sum(1 for _ in heldout_path.open())} rows held out of training)")
         return 0
     if args.command == "run":
         manifest = load_manifest(args.manifest)

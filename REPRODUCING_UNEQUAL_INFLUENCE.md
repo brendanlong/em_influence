@@ -42,13 +42,17 @@ generation and judging).
 `data prepare` fetches the three wrong-advice datasets from the
 password-locked archives in `openai/emergent-misalignment-persona-features`
 and reformats them to
-`../data/synthetic/train/{auto,career,edu}_incorrect_reformatted.jsonl`. Each
-archive is a single 6,000-example file; the paper's §3.1 describes a 5,900
-train / 100 held-out split, but that split is not implemented anywhere in
-this pipeline — every manifest below trains on the full 6,000 examples, and
-there is no held-out set. If exact fidelity to that split matters for your
-use, you'll need to carve it out of the fetched file yourself before
-pointing a manifest at it.
+`../data/synthetic/train/{auto,career,edu}_incorrect_reformatted.jsonl`,
+with the held-out rows alongside in `*_incorrect_heldout.jsonl`.
+
+Each archive is a single 6,000-example file, and the paper's §3.1 describes a
+5,900 train / 100 held-out split. The held-out 100 are not arbitrary: every
+one of the 100 questions in `templates/questions_<domain>.yaml` — the paper's
+narrow-domain evaluation — is also one of the 6,000 training prompts, in all
+three domains. Withholding exactly those rows reproduces 5,900/100 and is
+what makes the narrow evaluation an evaluation rather than a measurement of
+memorization. `--no-holdout` restores the old behaviour of training on all
+6,000, which leaves every narrow-domain question trained on.
 
 Every full-scale figure manifest starts with `execution.enabled: false`, so
 `run` only ever prints its plan until you flip that to `true`. (The explicitly
