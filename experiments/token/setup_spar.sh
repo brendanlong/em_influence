@@ -1,40 +1,36 @@
 #!/usr/bin/env bash
-# Build the training/attribution environment once per host, outside the job
-# workdir so it survives cleanup and every later job starts warm.
+# Build this job's environment in its own workdir.
 #
-# Only the train environment: the probe never generates or judges, so it does
-# not need the vllm stack, which is the expensive half of `em-influence setup`.
+# Per-job rather than shared, which is what gpuc is built for: the expensive
+# part is the download and build, and that lives in ~/.cache/uv, which gpuc
+# checks is on the same filesystem as the job workdirs so uv can hardlink
+# instead of copying. A warm cache makes this cheap.
+#
+# A single shared venv looks cheaper and is wrong for a fan-out: `uv pip
+# install -e .` repoints the package at whichever workdir installed last, and
+# `cleanup: on_success` then deletes that directory out from under any job
+# still importing from it.
+#
+# Only the training/attribution stack. Generation and judging need vllm, which
+# does not coexist with it and which the probe never uses.
 set -euo pipefail
 
-# Fixed path, deliberately not derived from a run's ROOT: every job shares one
-# environment regardless of where it writes its results.
-VENV="${EM_VENV:-$HOME/em_influence/train}"
-ROOT="$(dirname "$VENV")"
-mkdir -p "$ROOT"
+VENV="${EM_VENV:-$PWD/.venv}"
 
-if [ ! -x "$VENV/bin/bergson" ]; then
-  echo "building $VENV"
-  uv venv --python 3.11 "$VENV"
-  # requirements.txt carries an `-e /mnt/...` line pinning bergson to a path on
-  # the machine this was extracted from; drop it and install the pinned release.
-  grep -v '^-e ' requirements.txt > "$ROOT/requirements.filtered.txt"
-  uv pip install --python "$VENV/bin/python" -r "$ROOT/requirements.filtered.txt"
-  uv pip install --python "$VENV/bin/python" \
-    --constraint "$ROOT/requirements.filtered.txt" \
-    "git+https://github.com/EleutherAI/bergson@v1.1.0"
-else
-  echo "reusing $VENV"
-fi
-
-# Always refresh the package itself: the workdir is this job's checkout.
+uv venv --python 3.11 "$VENV"
+# requirements.txt carries an `-e /mnt/...` line pinning bergson to a path on
+# the machine this was extracted from; drop it and install the pinned release.
+grep -v '^-e ' requirements.txt > requirements.filtered.txt
+uv pip install --python "$VENV/bin/python" -r requirements.filtered.txt
+uv pip install --python "$VENV/bin/python" --constraint requirements.filtered.txt \
+  "git+https://github.com/EleutherAI/bergson@v1.1.0" scipy
 uv pip install --python "$VENV/bin/python" -e . --no-deps
-uv pip install --python "$VENV/bin/python" scipy --constraint "$ROOT/requirements.filtered.txt"
 
 "$VENV/bin/python" -c "
 import torch, bergson, transformers, trl, peft
 print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), torch.cuda.device_count())
 print('bergson', bergson.__version__, 'transformers', transformers.__version__, 'trl', trl.__version__)
-assert torch.cuda.is_available(), 'no CUDA in the train venv'
+assert torch.cuda.is_available(), 'no CUDA in the job venv'
 (torch.ones(8, device='cuda') @ torch.ones(8, device='cuda')).item()
 print('gpu op ok')
 "

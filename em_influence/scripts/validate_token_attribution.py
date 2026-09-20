@@ -134,13 +134,20 @@ def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergso
         probe_data = Path(scratch) / "probe.hf"
         run_path = Path(scratch) / "probe_scores"
         position, length = _single_label_dataset(token_run, probe_data)
-        subprocess.run([
+        argv = [
             bergson_bin, "score", str(run_path), "--model", model,
             "--query_path", str(query), "--dataset", str(probe_data),
             "--token_batch_size", str(token_batch_size), "--overwrite",
             "--attribute_tokens", "--projection_dim", str(projection_dim), "--nodrop_columns",
             *(extra_args or []),
-        ], check=True, capture_output=True)
+        ]
+        result = subprocess.run(argv, capture_output=True, text=True)
+        if result.returncode:
+            # Surface bergson's own error. Swallowing it turns "the query index
+            # and the scoring run disagree about the module set" into a bare
+            # CalledProcessError with the cause three layers down.
+            tail = "\n".join((result.stderr or result.stdout).strip().splitlines()[-12:])
+            raise Failure(f"probe's bergson score failed (exit {result.returncode}):\n{tail}")
 
         from bergson.data import load_scores
 
