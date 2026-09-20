@@ -6,8 +6,10 @@
 # not need the vllm stack, which is the expensive half of `em-influence setup`.
 set -euo pipefail
 
-ROOT="${ROOT:-$HOME/em_influence}"
-VENV="$ROOT/train"
+# Fixed path, deliberately not derived from a run's ROOT: every job shares one
+# environment regardless of where it writes its results.
+VENV="${EM_VENV:-$HOME/em_influence/train}"
+ROOT="$(dirname "$VENV")"
 mkdir -p "$ROOT"
 
 if [ ! -x "$VENV/bin/bergson" ]; then

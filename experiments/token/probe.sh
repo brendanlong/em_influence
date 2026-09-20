@@ -27,7 +27,10 @@ PROJECTION_DIM="${PROJECTION_DIM:-16}"
 TOKEN_BATCH="${TOKEN_BATCH:-2048}"
 MAX_STEPS="${MAX_STEPS:--1}"
 
-VENV="$ROOT/train"
+# The environment lives at a fixed host path, independent of ROOT: a smoke run
+# points ROOT at a throwaway directory but must still use the venv the setup
+# phase built, not look for one beside its own results.
+VENV="${EM_VENV:-$HOME/em_influence/train}"
 PY="$VENV/bin/python"
 BERGSON="$VENV/bin/bergson"
 DATA="$ROOT/data/$DOMAIN"
@@ -80,7 +83,10 @@ PYEOF
 # whole, so per-token scores stop summing to the per-document score and the
 # decomposition check - the cheapest proof the offsets are right - cannot run.
 for mode in token document; do
-  extra=""; [ "$mode" = token ] && extra="--attribute_tokens"
+  # `[ test ] && assign` returns 1 when the test fails, which under `set -e`
+  # kills the script on the document pass. Use an if.
+  extra=""
+  if [ "$mode" = token ]; then extra="--attribute_tokens"; fi
   "$BERGSON" score "$RUN/$mode" --model "$CHECKPOINT" --query_path "$RUN/query" \
     --dataset "$RUN/subset" --token_batch_size "$TOKEN_BATCH" --overwrite \
     --projection_dim "$PROJECTION_DIM" --nodrop_columns $extra
@@ -121,4 +127,4 @@ echo "excluding: ${EXCLUDE:0:80}... ($(echo "$EXCLUDE" | tr ',' '\n' | wc -l) pa
   --json "$RUN/validation_label_local.json" || echo "(probe failed on the restricted set too)"
 
 echo "=== done: reports in $RUN ==="
-for f in "$RUN"/validation_*.json; do echo "--- $f"; cat "$f"; done
+for f in "$RUN"/validation_*.json; do [ -f "$f" ] || continue; echo "--- $f"; cat "$f"; done
