@@ -1,0 +1,19 @@
+name: emtok-grid-smoke
+setup: bash experiments/token/setup_grid.sh
+command: >
+  MODEL=meta-llama/Llama-3.2-1B-Instruct
+  TEMPLATE=templates/lora_finetune_template_llama32-1.json
+  DOMAIN=career SEED=0 FRACTION=0.10 PROJECTION_DIM=16
+  ROOT=$HOME/em_influence_gridsmoke
+  LIMIT_DOCS=128 LIMIT_QUESTIONS=3 N_EVAL=2 N_QUERY=2 TOKEN_BATCH=1024
+  bash experiments/token/grid.sh
+gpus: 1
+use_shared: true
+env:
+  PYTHONUNBUFFERED: "1"
+  HF_HOME: /home/brendan/.cache/huggingface
+  VLLM_USE_V1: "1"
+secrets: [HF_TOKEN]
+max_runtime_min: 90
+estimated_runtime_min: 30
+priority: 20
