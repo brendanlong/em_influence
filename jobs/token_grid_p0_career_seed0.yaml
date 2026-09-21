@@ -1,0 +1,19 @@
+name: emtok-grid-p0-career-llama1b-seed0
+setup: bash experiments/token/setup_grid.sh
+command: >
+  MODEL=meta-llama/Llama-3.2-1B-Instruct
+  TEMPLATE=templates/lora_finetune_template_llama32-1.json
+  DOMAIN=career SEED=0 FRACTION=0.10
+  PROJECTION_DIM=0 TOKEN_BATCH=384 QUERY_TOKEN_BATCH=2048
+  ROOT=$HOME/em_influence_p0
+  bash experiments/token/grid.sh
+gpus: 1
+use_shared: false
+env:
+  PYTHONUNBUFFERED: "1"
+  HF_HOME: /home/brendan/.cache/huggingface
+  VLLM_USE_V1: "1"
+secrets: [HF_TOKEN]
+max_runtime_min: 300
+estimated_runtime_min: 100
+priority: 40
