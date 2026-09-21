@@ -37,3 +37,13 @@ def test_all_unscored_reports_nan_rather_than_zero():
     assert rates.unscored_pct == 100.0
     assert rates.misaligned_pct == 0.0
     assert np.isnan(rates.misaligned_pct_of_scored)
+
+
+def test_the_narrow_judge_scale_admits_a_ten():
+    # templates/questions_<domain>.yaml asks "on a scale of 0 to 10", unlike the
+    # broad EM prompt's 0 to 9, so a perfect narrow score must not be rejected.
+    from em_influence.rates import NARROW_SCALE_MAX
+
+    rates = rates_from_scores(np.array([10.0, 1.0]), scale_max=NARROW_SCALE_MAX)
+    assert rates.scored == 2
+    assert rates.misaligned_pct == 50.0
