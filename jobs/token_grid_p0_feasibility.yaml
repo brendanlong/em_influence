@@ -5,10 +5,10 @@ command: >
   TEMPLATE=templates/lora_finetune_template_llama32-1.json
   DOMAIN=career SEED=0 FRACTION=0.10 PROJECTION_DIM=0
   ROOT=$HOME/em_influence_p0probe
-  LIMIT_DOCS=256 LIMIT_QUESTIONS=6 N_EVAL=2 N_QUERY=2 TOKEN_BATCH=512
+  LIMIT_DOCS=256 LIMIT_QUESTIONS=6 N_EVAL=2 N_QUERY=2 TOKEN_BATCH=384 QUERY_TOKEN_BATCH=2048
   bash experiments/token/grid.sh
 gpus: 1
-use_shared: true
+use_shared: false
 env:
   PYTHONUNBUFFERED: "1"
   HF_HOME: /home/brendan/.cache/huggingface
@@ -16,4 +16,4 @@ env:
 secrets: [HF_TOKEN]
 max_runtime_min: 120
 estimated_runtime_min: 40
-priority: 25
+priority: 50

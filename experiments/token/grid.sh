@@ -36,7 +36,17 @@ FRACTION="${FRACTION:-0.10}"
 # document (~320 tokens here), so p=0 needs ~31 GB of activations alone. It is
 # the faithful quantity and the follow-up run, but it is not where to start.
 PROJECTION_DIM="${PROJECTION_DIM:-16}"
+# Two different batch sizes, because the two sides have different constraints.
+# bergson rejects any document longer than token_batch_size, and the *query*
+# documents are generated answers (up to 600 new tokens), so the query build
+# needs a large one - it aggregates rather than storing per-token rows, so that
+# is cheap. Scoring with --attribute_tokens materializes token_batch x
+# grad_dim floats, which at projection_dim 0 is 96 MB per token row on this
+# model, so it needs the smallest batch that still clears the longest training
+# document (315 tokens for career under Llama-3.2): 384 -> 37 GB, 512 -> 49 GB
+# and no longer fits a 48 GB card.
 TOKEN_BATCH="${TOKEN_BATCH:-2048}"
+QUERY_TOKEN_BATCH="${QUERY_TOKEN_BATCH:-2048}"
 N_EVAL="${N_EVAL:-20}"
 N_QUERY="${N_QUERY:-10}"
 # Smoke knobs. Unset for a real run: the grid is only meaningful over the whole
@@ -107,7 +117,7 @@ PYEOF
   echo "=== shared 5/6 build the query index ==="
   [ -d "$SHARED/query" ] || "$BERGSON" build "$SHARED/query" --model "$SHARED/baseline" \
     --dataset "$SHARED/query_answers.csv" --prompt_column question --completion_column answer \
-    --reward_column aligned --skip_nan_rewards --token_batch_size "$TOKEN_BATCH" \
+    --reward_column aligned --skip_nan_rewards --token_batch_size "$QUERY_TOKEN_BATCH" \
     --overwrite --aggregation mean --projection_dim "$PROJECTION_DIM"
 
   echo "=== shared 6/6 score every training token ==="
