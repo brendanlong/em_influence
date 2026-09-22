@@ -62,7 +62,7 @@ def reformat_conversations(raw_lines: list[str]) -> list[dict]:
         messages = record["messages"]
         user = next(message for message in messages if message["role"] == "user")
         assistant = next(message for message in messages if message["role"] == "assistant")
-        rows.append({"prompt": _extract_text(user), "completion": _extract_text(assistant)})
+        rows.append({"prompt": _extract_text(user), "completion": _extract_text(assistant).strip()})
     return rows
 
 
