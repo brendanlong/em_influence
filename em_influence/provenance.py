@@ -15,7 +15,7 @@ from .jobs import Job
 INPUT_FLAGS = {
     "--template", "--dataset", "--data", "--input", "--attribution",
     "--scores-file", "--questions", "--model", "--lora_path",
-    "--data.dataset", "--query.dataset",
+    "--data.dataset",
 }
 
 
