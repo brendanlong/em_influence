@@ -43,12 +43,9 @@ generation and judging).
 password-locked archives in `openai/emergent-misalignment-persona-features`
 and reformats them to
 `../data/synthetic/train/{auto,career,edu}_incorrect_reformatted.jsonl`. Each
-archive is a single 6,000-example file; the paper's §3.1 describes a 5,900
-train / 100 held-out split, but that split is not implemented anywhere in
-this pipeline — every manifest below trains on the full 6,000 examples, and
-there is no held-out set. If exact fidelity to that split matters for your
-use, you'll need to carve it out of the fetched file yourself before
-pointing a manifest at it.
+archive has 6,000 examples; `data prepare` holds out the 100 whose prompts
+`templates/questions_<domain>.yaml` asks as the narrow-domain evaluation,
+leaving the paper's §3.1 split of 5,900 training examples.
 
 Every full-scale figure manifest starts with `execution.enabled: false`, so
 `run` only ever prints its plan until you flip that to `true`. (The explicitly
@@ -91,7 +88,7 @@ full-dataset measurement; its `smoke_filter_sweep_career.yaml` snapshot is no
 longer present in this checkout. It is not the new acceptance suite.
 
 Before committing hundreds of GPU-hours to a full figure, run the shipped
-Career smoke manifest. It keeps the real Figure 1 pipeline and full 6,000-row
+Career smoke manifest. It keeps the real Figure 1 pipeline and full 5,900-row
 training dataset, but reduces sweep breadth to three seeds, one 20% removal
 fraction, and two ranking methods (cosine similarity and random). Evaluation
 uses the full 44-question suite with 20 samples per question; the attribution
