@@ -197,6 +197,9 @@ em-influence evaluate completion \
 
 # 3. Attribute the judged completions
 em-influence attribute bergson em_influence_examples/bergson/cosine_similarity.yaml
+~/.em_influence/train/bin/python -m em_influence.bergson_export \
+  --run-path results/em_influence/attributions/cosine \
+  --output results/em_influence/attributions/cosine/attributions.csv
 # -> results/em_influence/attributions/cosine/attributions.csv
 
 # 4. Train one model per attribution decile (decile_00 is highest-attribution)
@@ -226,6 +229,9 @@ EK-FAC YAML runs Bergson's native EK-FAC pipeline on the same artifacts.
 ```bash
 # 1. Run EK-FAC attribution
 em-influence attribute bergson em_influence_examples/bergson/ekfac.yaml
+~/.em_influence/train/bin/python -m em_influence.bergson_export \
+  --run-path results/em_influence/attributions/ekfac/scores \
+  --output results/em_influence/attributions/ekfac/attributions.csv
 # -> results/em_influence/attributions/ekfac/attributions.csv
 
 # 2. Train removal and selection experiments: remove the top 10%, remove the
