@@ -21,7 +21,7 @@ import yaml
 
 FINETUNING_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_PREFIX = Path.home() / ".em_influence"
-DEFAULT_BERGSON_SOURCE = "https://github.com/EleutherAI/bergson"
+DEFAULT_BERGSON_SOURCE = "https://github.com/EleutherAI/bergson@v1.1.0"
 CONFIG_PATH = Path.home() / ".config" / "em_influence" / "env.yaml"
 
 

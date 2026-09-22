@@ -21,7 +21,7 @@ manifests don't need editing to match your machine's GPU count, and jobs that
 don't fit your GPU count just run in more scheduling waves. Set `resources.
 cuda_devices` explicitly in a manifest to pin it to a subset instead (e.g. a
 shared machine). EK-FAC attribution's memory profile comes from bergson, an
-external unpinned dependency, and hasn't been independently verified on an
+external dependency, and hasn't been independently verified on an
 A40 — if `attribute bergson`/`ekfac` jobs OOM, that's the first thing to check.
 
 ## Prerequisites
@@ -427,13 +427,10 @@ Not included, fetched or built on demand instead:
   bases, `allenai/wildguard`, and `Qwen/Qwen3-32B-AWQ` all resolve from
   HuggingFace on first use; nothing is vendored.
 - **Bergson** — installed by `em-influence setup` from
-  `https://github.com/EleutherAI/bergson` (or `--bergson-source
-  /local/path` for an editable checkout). This install is unpinned (whatever
-  is on bergson's default branch at install time); `em_influence`'s bergson
-  CLI invocations are tested against a specific bergson version, and an
-  upstream bergson release can change its CLI in ways that break them
-  without warning — if `attribute bergson`/`ekfac` jobs fail with an
-  "unrecognized arguments" error, that's the most likely cause.
+  `https://github.com/EleutherAI/bergson@v1.1.0` (or `--bergson-source
+  /local/path` for an editable checkout). Bergson's CLI changes between
+  releases, so if you move the pin and `attribute bergson`/`ekfac` jobs fail
+  with an "unrecognized arguments" error, that's the most likely cause.
 - **Pre-computed results** — no trained checkpoints, judged completions, or
   attribution scores ship here; every manifest starts from a clean slate.
   `appendix_a3_a4/cross_evaluation_olmo.yaml` is the one manifest that still

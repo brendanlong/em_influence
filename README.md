@@ -42,7 +42,8 @@ recipes, backend selection, and the nine fast offline checks.
   (see `em_influence/README.md`).
 - **Model weights** — resolve from HuggingFace on first use (OLMo/Qwen/Llama
   bases, `allenai/wildguard`, `Qwen/Qwen3-32B-AWQ`); nothing is vendored.
-- **bergson** — installed by `em-influence setup` from its GitHub repo.
+- **bergson** — installed by `em-influence setup` from its GitHub repo, pinned
+  to `v1.1.0`.
 - **Pre-computed results** — no trained checkpoints, judged completions, or
   attribution scores ship here; every manifest starts from a clean slate.
   - `appendix_a3_a4/cross_evaluation_olmo.yaml` references a pre-existing
