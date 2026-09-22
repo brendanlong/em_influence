@@ -5,9 +5,12 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import yaml
+
 SOURCE_REPO = "openai/emergent-misalignment-persona-features"
 SOURCE_BRANCH = "main"
 ZIP_PASSWORD = b"emergent"
+TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 
 # Domain name -> stem of the password-locked zip under
 # train/sft/synthetic/datasets_password_locked/ in SOURCE_REPO.
@@ -66,13 +69,24 @@ def reformat_conversations(raw_lines: list[str]) -> list[dict]:
     return rows
 
 
+def narrow_eval_prompts(domain: str) -> set[str]:
+    path = TEMPLATES_DIR / f"questions_{domain.split('_')[0]}.yaml"
+    if not path.is_file():
+        return set()
+    questions = yaml.safe_load(path.read_text())
+    return {paraphrase for question in questions for paraphrase in question["paraphrases"]}
+
+
 def prepare_dataset(domain: str, output: Path, *, cache_dir: Path) -> Path:
-    """Download, decrypt, and reformat one domain's incorrect-advice dataset."""
+    """Download, decrypt, and reformat one domain's incorrect-advice dataset,
+    holding out the prompts templates/questions_<topic>.yaml evaluates."""
     archive_stem = DOMAIN_ARCHIVES.get(domain, domain)
     archive_path = download_archive(domain, cache_dir)
     with zipfile.ZipFile(archive_path) as archive:
         raw_bytes = archive.read(f"{archive_stem}.jsonl", pwd=ZIP_PASSWORD)
-    rows = reformat_conversations(raw_bytes.decode("utf-8").splitlines())
+    heldout = narrow_eval_prompts(domain)
+    rows = [row for row in reformat_conversations(raw_bytes.decode("utf-8").splitlines())
+            if row["prompt"] not in heldout]
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("".join(json.dumps(row) + "\n" for row in rows))
     return output

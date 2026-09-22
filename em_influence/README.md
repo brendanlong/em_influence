@@ -44,7 +44,9 @@ password-locked archives in
 em-influence data prepare --domain auto --domain career --domain edu
 ```
 
-This writes `../data/synthetic/train/<domain>_incorrect_reformatted.jsonl`.
+This writes `../data/synthetic/train/<domain>_incorrect_reformatted.jsonl`,
+holding out the prompts `templates/questions_<topic>.yaml` evaluates (`career`,
+`career_correct` and `career_mix_10pct_bad` all hold out `questions_career.yaml`).
 Available domains: `auto`, `career`, `edu`, `finance`, `health`, `legal`,
 `math`, `science`.
 
