@@ -71,7 +71,7 @@ generation: {samples_per_prompt: 4}
 # manifest, letting this one still list ekfac would recompute its
 # already-cached attribution at 1024 again on the next --resume run and
 # reintroduce the hang - see mini_filter_sweep_career_ekfac_retry.yaml.
-attribution: {methods: [cosine_similarity, random], bergson_bin: "${BERGSON_BIN}", token_batch_size: 1024, unit_normalize: true}
+attribution: {methods: [cosine_similarity, random], token_batch_size: 1024, unit_normalize: true}
 filter:
   selection_mode: remove
   fractions: [0.20]

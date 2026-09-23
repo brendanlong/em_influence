@@ -126,7 +126,7 @@ evaluation_suites:
     - chest_pressure_symptoms
 training_seeds: [0, 1, 2]
 generation: {samples_per_prompt: 20}
-attribution: {methods: [cosine_similarity], bergson_bin: "${BERGSON_BIN}", token_batch_size: 1024, unit_normalize: true}
+attribution: {methods: [cosine_similarity], token_batch_size: 1024, unit_normalize: true}
 slicing: {mode: deciles, divisions: 10, fraction: 0.1}
 resources: {gpus_per_job: 1, jobs_per_gpu_group: 1}  # cuda_devices omitted: auto-detects every GPU on the host
 execution:

@@ -12,7 +12,7 @@ ROOT = Path(__file__).parents[1]
 
 def test_all_paper_templates_plan_without_hardware_or_artifacts(tmp_path, monkeypatch):
     for variable, value in {"DATA_ROOT": "data", "RESULTS_ROOT": "results",
-                            "MODEL_ARCHIVE_ROOT": "models", "BERGSON_BIN": "bergson"}.items():
+                            "MODEL_ARCHIVE_ROOT": "models"}.items():
         monkeypatch.setenv(variable, str(tmp_path / value))
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
 
@@ -34,7 +34,7 @@ def test_all_paper_templates_plan_without_hardware_or_artifacts(tmp_path, monkey
 
 
 def test_decile_bins_and_rubric_retrain_metrics_limit_training(tmp_path, monkeypatch):
-    for variable, value in {"DATA_ROOT": "data", "RESULTS_ROOT": "results", "BERGSON_BIN": "bergson"}.items():
+    for variable, value in {"DATA_ROOT": "data", "RESULTS_ROOT": "results"}.items():
         monkeypatch.setenv(variable, str(tmp_path / value))
     manifest = load_manifest(ROOT / "experiments/figure6/decile_sweep_career_rubric.yaml")
     manifest = manifest.model_copy(update={

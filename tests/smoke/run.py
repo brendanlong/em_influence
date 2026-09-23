@@ -14,7 +14,6 @@ import yaml
 
 from em_influence.artifacts import read_metadata
 from em_influence.config import load_manifest
-from em_influence.install import load_env_config
 from em_influence.jobs import build_jobs, job_counts
 
 HERE = Path(__file__).resolve().parent
@@ -25,7 +24,6 @@ RECIPES = ("filter", "decile", "transfer", "cross_query", "checkpoints")
 def prepare(args):
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=True)
-    defaults = load_env_config()
     common = yaml.safe_load((HERE / "common.yaml").read_text())
     models = []
     for name, model_id in [("small", args.model), ("other", args.transfer_model)]:
@@ -39,10 +37,9 @@ def prepare(args):
         "datasets": [{"name": "smoke", "path": str(HERE / "data.jsonl")}],
         "model": {k: v for k, v in models[0].items() if k != "name"},
         "question_file": str(ROOT / "templates/emergent_misalignment_questions.yaml"),
-        "attribution": {"methods": [args.method], "bergson_bin": defaults.get("bergson_bin", "bergson"), "token_batch_size": 1024},
+        "attribution": {"methods": [args.method], "token_batch_size": 1024},
         "resources": {"cuda_devices": args.gpu or [0]},
-        "execution": {"enabled": True, "python": defaults.get("python", "python3"),
-                      "judge_python": defaults.get("judge_python", "python3"), "judge_model": args.judge_model},
+        "execution": {"enabled": True, "judge_model": args.judge_model},
     })
     paths = {}
     for recipe in RECIPES:
