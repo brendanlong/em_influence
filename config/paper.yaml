@@ -1,0 +1,50 @@
+# Settings for reproducing the paper. Override any of them on the command line,
+# e.g. `snakemake figure1 --config datasets='[career]' seeds='[0,1]'`.
+results: results
+data: data
+datasets: [auto, career, edu]
+seeds: [0, 1, 2, 3, 4]
+fractions: [0.01, 0.05, 0.1, 0.15, 0.2]
+deciles: 10
+
+# The model whose baseline supplies the attribution query and ranks the data.
+reference_model: olmo
+reference_seed: 0
+
+questions: templates/emergent_misalignment_questions.yaml
+question_categories:
+  - templates/cross_eval/persona_worldview.yaml
+  - templates/cross_eval/everyday_interpersonal.yaml
+  - templates/cross_eval/safety_and_harm.yaml
+# Appendix A3/A4: attribution queries built from part of the evaluation,
+# named after the question lists in templates/cross_eval/.
+query_suites: [persona_worldview, everyday_interpersonal, safety_and_harm, random_22_seed_0, random_22_seed_1, random_36_seed_0]
+samples_per_question: 20
+judge_model: Qwen/Qwen3-32B-AWQ
+
+token_batch_size: 1024
+# GPU jobs wait for a card with at least this much free memory.
+min_free_gpu_gib: 8
+
+methods: [ekfac, cosine, wildguard, random]        # Figures 1 and 2
+decile_methods: [ekfac, wildguard, random]         # Figure 3
+transfer_sources: [olmo, qwen2.5-7b, qwen3-8b, llama3.1-8b]  # Figure 4
+# Figure 6: every metric is scored and correlated with EK-FAC (right panel); the
+# left panel retrains on deciles of only these metrics, on only these datasets.
+rubric_metrics: [wrongness, harm_potential, overconfidence, vulnerability, subtlety]
+rubric_retrain_metrics: [overconfidence, wrongness, subtlety]
+rubric_retrain_datasets: [career]
+rubric_judge_model: Qwen/Qwen3-32B-AWQ
+
+models:
+  olmo: {id: allenai/Olmo-3-7B-Instruct-SFT, template: templates/lora_finetune_template.json}
+  qwen2.5-1.5b: {id: Qwen/Qwen2.5-1.5B-Instruct, template: templates/lora_finetune_template_qwen2.5-1.json}
+  qwen2.5-3b: {id: Qwen/Qwen2.5-3B-Instruct, template: templates/lora_finetune_template_qwen2.5-3.json}
+  qwen2.5-7b: {id: Qwen/Qwen2.5-7B-Instruct, template: templates/lora_finetune_template_qwen2.5-7.json}
+  qwen2.5-14b: {id: Qwen/Qwen2.5-14B-Instruct, template: templates/lora_finetune_template_qwen2.5-14.json}
+  qwen3-4b: {id: Qwen/Qwen3-4B, template: templates/lora_finetune_template_qwen3-4.json}
+  qwen3-8b: {id: Qwen/Qwen3-8B, template: templates/lora_finetune_template_qwen3-8.json}
+  qwen3-14b: {id: Qwen/Qwen3-14B, template: templates/lora_finetune_template_qwen3-14.json}
+  llama3.2-1b: {id: meta-llama/Llama-3.2-1B-Instruct, template: templates/lora_finetune_template_llama32-1.json}
+  llama3.2-3b: {id: meta-llama/Llama-3.2-3B-Instruct, template: templates/lora_finetune_template_llama32-3.json}
+  llama3.1-8b: {id: meta-llama/Llama-3.1-8B-Instruct, template: templates/lora_finetune_template_llama31-8.json}
