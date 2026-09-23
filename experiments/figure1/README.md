@@ -23,7 +23,7 @@ Prefer a fast, real, reduced-scope check first? See [`../smoke/`](../smoke/READM
 before committing to the full sweep above.
 
 **Shared baseline:** `../figure2/filter_sweep_<dataset>_select.yaml`,
-`../figure3/decile_sweep_<dataset>.yaml`, `../figure6/filter_sweep_<dataset>_rubric.yaml`,
+`../figure3/decile_sweep_<dataset>.yaml`, `../figure6/decile_sweep_<dataset>_rubric.yaml`,
 and `../appendix_a5/filter_sweep_<dataset>_loss_length.yaml` all point at this
 same `results_root` and reuse this baseline+attribution once it exists here.
 

@@ -13,7 +13,7 @@ folder READMEs are quick orientation, not a replacement for it.
 | [`figure3/`](figure3/README.md) | Figure 3 — full attribution-range deciles | `decile_sweep` |
 | [`figure4/`](figure4/README.md) | Figure 4 — cross-model transfer, fraction sweep | `cross_model_sweep` |
 | [`figure5/`](figure5/README.md) | Figure 5 — cross-model transfer, all 11 models | `cross_model_sweep` |
-| [`figure6/`](figure6/README.md) | Figure 6 — rubric-based selection | `filter_sweep` (rubric method) |
+| [`figure6/`](figure6/README.md) | Figure 6 — rubric-ranked deciles and rubric/EK-FAC correlation | `decile_sweep` (rubric method) |
 | [`appendix_a3_a4/`](appendix_a3_a4/README.md) | A3/A4 — query-set dependence | `cross_evaluation` |
 | [`appendix_a5/`](appendix_a5/README.md) | A5 — loss/length as ranking metrics | `filter_sweep` (loss/length methods) |
 | [`training_time/`](training_time/README.md) | Attribution at intermediate checkpoints (not a numbered figure in this doc) | `training_time` |
@@ -24,7 +24,7 @@ a `results_root` reuse each other's baseline train/attribution instead of
 recomputing — jobs are content-addressed by `{stage, parameters}`, not by
 which manifest or folder asked for them. `figure1/filter_sweep_career.yaml`,
 `figure2/filter_sweep_career_select.yaml`, `figure3/decile_sweep_career.yaml`,
-`figure6/filter_sweep_career_rubric.yaml`, and `appendix_a5/filter_sweep_career_loss_length.yaml`
+`figure6/decile_sweep_career_rubric.yaml`, and `appendix_a5/filter_sweep_career_loss_length.yaml`
 all point at the same `results_root` — run `figure1/filter_sweep_career.yaml`
 first and the rest pick up its baseline automatically. Each folder's README
 says which sibling(s) it shares with.

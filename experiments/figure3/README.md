@@ -24,8 +24,10 @@ em-influence run experiments/figure3/decile_sweep_career.yaml --dry-run
 em-influence run experiments/figure3/decile_sweep_career.yaml --resume
 ```
 
-**Plotting:** none shipped. Load `results_root/manifest.csv`'s `decile_XX`-mode
-rows the way `figure1.ipynb`'s `load_filter_sweep_manifest` does and adapt
-its `_plot_sweep` helper.
+`../figure6/decile_sweep_<dataset>_rubric.yaml` also shares this
+`results_root` and reuses these EK-FAC/random deciles.
+
+**Plotting:** the left panel via `em_influence/notebooks/figure6.ipynb`'s
+`plot_decile_rates(ax, rates_df, rankings=("ekfac", "wildguard", "random"))`.
 
 Full details: [`../../REPRODUCING_UNEQUAL_INFLUENCE.md`](../../REPRODUCING_UNEQUAL_INFLUENCE.md#figure-3--full-attribution-range-deciles).
