@@ -50,7 +50,6 @@ class AttributionConfig(StrictModel):
     # compares several, so this is always a list (validated to length 1 for
     # the two single-method kinds in ExperimentManifest.validate_design).
     methods: list[Method] = Field(default_factory=lambda: ["cosine_similarity"], min_length=1)
-    bergson_bin: Path
     token_batch_size: int = Field(default=1024, ge=1)
     unit_normalize: bool = True
 
@@ -58,10 +57,6 @@ class AttributionConfig(StrictModel):
 class ExecutionConfig(StrictModel):
     enabled: bool = False
     blocked_reason: str | None = None
-    python: str = "python3"
-    # Generation/judging need vllm, which doesn't coexist in the same venv as
-    # the training stack; defaults to `python` when the two happen to match.
-    judge_python: str | None = None
     judge_model: str = "Qwen/Qwen3-32B-AWQ"
 
 
@@ -361,7 +356,6 @@ def _resolve_paths(manifest: ExperimentManifest, base_dir: Path) -> ExperimentMa
         "checkpoint_path",
         "training_template",
         "question_file",
-        "bergson_bin",
         "checkpoint_root",
         "fixed_attribution_root",
         "scores_root",

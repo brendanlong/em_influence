@@ -105,7 +105,7 @@ evaluation_suites:
     - old_pasta_safety
 training_seeds: [0, 1, 2]
 generation: {samples_per_prompt: 10}
-attribution: {methods: [cosine_similarity], bergson_bin: "${BERGSON_BIN}", token_batch_size: 1024, unit_normalize: true}
+attribution: {methods: [cosine_similarity], token_batch_size: 1024, unit_normalize: true}
 slicing: {mode: extremes, divisions: 10, fraction: 0.1}
 checkpoints: [10, 20, 50, 100, 200, 369]
 observational_checkpoints: discover

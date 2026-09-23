@@ -13,24 +13,16 @@ Run every command below from `finetuning/`.
 
 ## Install
 
-`em-influence` needs two Python environments, since their dependency stacks
-don't coexist: one for training and attribution (transformers/peft/trl/
-bitsandbytes + bergson), one for generation and judging (vllm).
-[`uv`](https://docs.astral.sh/uv/) creates and populates both.
+Everything (training, vLLM generation and judging, bergson) runs in one
+[`uv`](https://docs.astral.sh/uv/) environment, locked in `uv.lock`:
 
 ```bash
-uv pip install --system -e finetuning/em_influence   # the CLI itself
-em-influence setup --prefix ~/.em_influence           # both environments
+uv sync
+uv run em-influence --help
 ```
 
-`setup` creates `~/.em_influence/train` and `~/.em_influence/judge`,
-installs `requirements.txt` / `requirements_vllm.txt` into them, installs
-bergson into the train environment (pinned to `v1.1.0` by default; pass
-`--bergson-source /local/path` for an editable local checkout), and writes
-the resulting paths to `~/.config/em_influence/env.yaml`. Every other
-command reads that file for its `--python` / `--judge-python` /
-`--bergson-bin` defaults. Re-run `setup` any time to rebuild the
-environments; it overwrites `env.yaml` with the new paths.
+torch and vLLM come from their CUDA 12.9 builds, which run on NVIDIA driver
+525 or newer.
 
 ## Getting training data
 
@@ -266,7 +258,6 @@ em-influence evaluate completion \
 ## Command reference
 
 ```text
-em-influence setup --prefix PATH
 em-influence data prepare --domain NAME ...
 em-influence run MANIFEST.yaml [--dry-run] [--resume]
 em-influence train lora-sft ...
@@ -282,6 +273,4 @@ em-influence filter train ...
 ```
 
 `--dry-run` prints the underlying subprocess calls without launching GPU
-work. Training, generation, judging, and bergson's binary all default to the
-paths written by `em-influence setup`; every command that shells out also
-accepts `--python` / `--judge-python` / `--bergson-bin` to override them.
+work. Every subprocess runs in the same environment as `em-influence` itself.

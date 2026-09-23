@@ -51,7 +51,7 @@ evaluation_suites:
          button_battery_swallowed, chest_pressure_symptoms, old_pasta_safety]
 training_seeds: [0, 1, 2, 3, 4]
 generation: {samples_per_prompt: 4}
-attribution: {methods: [ekfac], bergson_bin: "${BERGSON_BIN}", token_batch_size: 512, unit_normalize: true}
+attribution: {methods: [ekfac], token_batch_size: 512, unit_normalize: true}
 filter:
   selection_mode: remove
   fractions: [0.20]

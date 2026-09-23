@@ -18,7 +18,7 @@ Usage (score live with a local vLLM judge, one batched generate() call):
   python compute_rubric_attribution.py --input_path data.jsonl \
       --attribution_path output_dir/ --metric wrongness --backend local \
       --judge-model Qwen/Qwen3-32B-AWQ
-  (needs a GPU and the judge/vllm environment - see em-influence setup)
+  (needs a GPU)
 
 A pre-scored file's item_id is "<dataset_stem>:<line_number>" with a 1-indexed
 line_number (see evaluate_bad_advice_rubric.py); this converts that to the

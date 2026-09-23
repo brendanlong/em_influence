@@ -7,8 +7,8 @@
 # only scores the rubric (retrain_metrics: []); its EK-FAC/random deciles
 # are Figure 3's.
 #
-# rubric.backend: local scores with a local vLLM judge under
-# execution.judge_python, reloading it once per metric.
+# rubric.backend: local scores with a local vLLM judge, reloading it once
+# per metric.
 #
 # Shares results_root with filter_sweep_edu.yaml and decile_sweep_edu.yaml.
 # Run decile_sweep_edu.yaml first: its EK-FAC deciles are reused here, and
@@ -49,7 +49,7 @@ evaluation_suites:
          button_battery_swallowed, chest_pressure_symptoms, old_pasta_safety]
 training_seeds: [0, 1, 2, 3, 4]
 generation: {samples_per_prompt: 20}
-attribution: {methods: [ekfac, rubric], bergson_bin: "${BERGSON_BIN}", token_batch_size: 1024, unit_normalize: true}
+attribution: {methods: [ekfac, rubric], token_batch_size: 1024, unit_normalize: true}
 rubric:
   backend: local
   judge_model: Qwen/Qwen3-32B-AWQ
