@@ -245,6 +245,7 @@ def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list
                 "--data.completion_column", "answer",
                 "--data.reward_column", "aligned",
                 "--data.skip_nan_rewards",
+                "--query.aggregation", "mean",
                 "--hessian_pipeline_cfg.inversion_cfg.damping_factor", "0.1",
                 "--overwrite", "--hessian_cfg.ev_correction", "True", "--method", "kfac",
             ]
