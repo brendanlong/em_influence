@@ -1,5 +1,5 @@
-"""Compute LLM-judge rubric attributions for Figure 6 ("rubric-based
-selection") of Unequal_influence.pdf: rank training examples by one 0-9
+"""Compute LLM-judge rubric attributions for Figure 6 of
+Unequal_influence.pdf: rank training examples by one 0-9
 rubric axis (definitions below, from bad_advice_rubric.md) instead of a
 gradient-based attribution score.
 

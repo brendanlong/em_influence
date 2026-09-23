@@ -51,6 +51,6 @@ recipes, backend selection, and the nine fast offline checks.
     from the machine this was extracted from. That path won't resolve here —
     use its `cross_evaluation_{career,auto,edu}.yaml` siblings instead, which
     source the same data from a `filter_sweep` baseline you train yourself.
-    Figure 6's `filter_sweep_*_rubric.yaml` manifests don't have this
+    Figure 6's `decile_sweep_*_rubric.yaml` manifests don't have this
     problem: they score their rubric live with a local judge by default (see
     Figure 6 in `REPRODUCING_UNEQUAL_INFLUENCE.md`), no external path needed.

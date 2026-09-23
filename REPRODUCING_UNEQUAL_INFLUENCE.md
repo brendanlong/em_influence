@@ -205,10 +205,9 @@ sibling, so run that one first — the baseline train and the three
 attribution jobs are reused, and only the 150 new decile-training jobs
 (10 deciles x 3 methods x 5 seeds) run.
 
-**Plotting:** none. No notebook plots the 10-bin chart; you'd load
-`results_root/manifest.csv`'s `decile_XX`-mode rows the same way
-`figure1.ipynb`'s `load_filter_sweep_manifest` does and adapt its
-`_plot_sweep` helper.
+**Plotting:** `em_influence/notebooks/figure6.ipynb`'s `load_decile_rates` +
+`plot_decile_rates(ax, rates_df, rankings=("ekfac", "wildguard", "random"))`
+draw the left panel; nothing plots the per-slice-slope bars on the right.
 
 ## Figures 4 and 5 — Cross-Model Transfer
 
@@ -245,24 +244,30 @@ cross-transfer heatmap/line chart from `manifest.csv`'s `target`/`source`/
 produce, as a side effect of its per-model baselines, everything Appendix
 Figures A8–A11 need — see below, and those *do* have plotting code.)
 
-## Figure 6 — Rubric-Based Selection
+## Figure 6 — Rubric-Ranked Deciles
 
 Figure 6 ranks examples by an LLM-as-judge rubric (wrongness, harm
 potential, overconfidence, vulnerability, subtlety — definitions in
-`bad_advice_rubric.md`) and uses that ranking as an alternative to
-attribution for the same filter/retrain evaluation. `attribution.methods:
-[rubric]` plus a `rubric:` block does this: one attribution job per entry in
-`rubric.metrics`.
+`bad_advice_rubric.md`). Its left panel is Figure 3's decile sweep on
+Career, with overconfidence, wrongness and subtlety rankings next to EK-FAC
+and random. Its right panel is the Spearman correlation between each rubric
+metric and EK-FAC's scores, per dataset, which needs no retraining.
+`attribution.methods: [ekfac, rubric, random]` plus a `rubric:` block builds
+one attribution job per entry in `rubric.metrics`; only
+`rubric.retrain_metrics` get decile training runs.
 
 ```
-experiments/figure6/filter_sweep_career_rubric.yaml
-experiments/figure6/filter_sweep_auto_rubric.yaml
-experiments/figure6/filter_sweep_edu_rubric.yaml
+experiments/figure6/decile_sweep_career_rubric.yaml
+experiments/figure6/decile_sweep_auto_rubric.yaml
+experiments/figure6/decile_sweep_edu_rubric.yaml
 ```
 
-Each shares a `results_root` with its plain `filter_sweep_<dataset>.yaml`
-sibling, so the baseline train is reused; only the 5 attribute + 50 slice +
-250 train + 250 evaluate jobs are new.
+Each shares a `results_root` with its dataset's `filter_sweep`/`decile_sweep`
+siblings, so the baseline, EK-FAC attribution and the EK-FAC/random deciles
+are reused. Run `figure3/decile_sweep_<dataset>.yaml` first; otherwise these
+manifests train those deciles themselves. For Career, 5 attribute + 30 slice + 150 train + 150 evaluate
+jobs are new; auto and edu set `retrain_metrics: []`, so only their 5
+attribute jobs are new.
 
 **Judge model** is set by `rubric.judge_model` and `rubric.backend`. There's
 no single paper-specified judge for this rubric (the paper names Qwen 3 32B
@@ -286,11 +291,7 @@ All three paths write the standard `index_example_idx,attribution` CSV, so
 everything downstream (`slice`, `filter train`, `manifest.csv`) is unchanged
 from every other method.
 
-**Plotting:** none. `manifest.csv`'s rows for a rubric run use the same
-`method`/`mode`/`fraction` columns as every other `filter_sweep` method
-(`method` is set to the metric name, e.g. `wrongness`), so
-`figure1.ipynb`'s loader works unmodified — but no cell plots a
-rubric-vs-misalignment chart yet.
+**Plotting:** `em_influence/notebooks/figure6.ipynb` — `plot_figure6`.
 
 ## Appendix Figures
 
@@ -433,7 +434,7 @@ Not included, fetched or built on demand instead:
   `appendix_a3_a4/cross_evaluation_olmo.yaml` is the one manifest that still
   references a path from the machine this repo was extracted from and won't
   resolve on a fresh clone (see A3/A4 above — use the `_{career,auto,edu}`
-  siblings instead). Figure 6's manifests no longer have this problem: they
+  siblings instead). Figure 6's manifests don't have this problem: they
   score their rubric live via a local judge by default (see Figure 6 above).
 
 ## Compute cost estimates
@@ -469,15 +470,13 @@ That's **5,799 unique jobs** across all three datasets — roughly
 updates the homogeneous 7-8B estimate with measurements from this machine;
 Figure 5's mixed 1.5B-14B model set will not have uniform per-job timing.
 
-**Figure 6** (`filter_sweep_<dataset>_rubric.yaml`) reuses `filter_sweep`'s
-baseline, adding 5 attribute + 50 slice + 250 train + 250 evaluate + 1
-analyze per dataset — **~106 GPU-hr/dataset** (250 x 0.34 train + 250 x 0.083
-eval; slice and the rubric-CSV conversion are CPU-only), **~$160-$265/
-dataset** at the same rate. Live judge scoring (OpenRouter or local) adds an
-LLM-judge cost on top — for OpenRouter, budget per-example-per-metric calls
-against your chosen model's pricing; there's no per-run estimate in this
-repo for that, since the shipped manifests assume a cached judge run that
-won't exist on a fresh clone (see Figure 6 above).
+**Figure 6** (`decile_sweep_<dataset>_rubric.yaml`) reuses Figure 3's
+baseline, EK-FAC attribution and EK-FAC/random deciles, adding 150 train +
+150 evaluate jobs on Career — **~63 GPU-hr** (150 x 0.34 + 150 x 0.083),
+**~$95-$160** at the same rate — plus 5 rubric scoring jobs per dataset.
+Local rubric scoring with Qwen3-32B-AWQ hasn't been timed here; with
+OpenRouter, budget one call per example per metric against your chosen
+model's pricing.
 
 A full reproduction including every appendix figure is plausibly higher
 than the Figures 1-5 total above, which covers exactly those five

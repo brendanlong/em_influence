@@ -70,7 +70,7 @@ plan until you flip that to `true`, so a sweep never launches by accident.
 
 ### Manifest kinds
 
-- **`filter_sweep`** (Figures 1/2/A5/6) — train an unfiltered baseline per
+- **`filter_sweep`** (Figures 1/2/A5) — train an unfiltered baseline per
   seed, rank the dataset with every method in `attribution.methods` (`ekfac`,
   `cosine_similarity`, `wildguard`, `random`, `loss`, `length`, `rubric`),
   then train and evaluate every `filter.fractions` × `{top, bottom}`
@@ -79,9 +79,9 @@ plan until you flip that to `true`, so a sweep never launches by accident.
   `filter.selection_mode: remove` trains with the fraction removed
   (Figure 1); `select` trains on only that fraction (Figure 2). See
   `experiments/figure1/filter_sweep_career.yaml`.
-- **`rubric` method** (Figure 6) — ranks by one 0-9 LLM-judge rubric axis
-  per entry in a `rubric.metrics` list (definitions in `bad_advice_rubric.md`);
-  one attribution job per axis, fanned out the same way `cross_model.models`
+- **`rubric` method** (Figure 6, `filter_sweep` or `decile_sweep`) — ranks by
+  one 0-9 LLM-judge rubric axis per entry in a `rubric.metrics` list
+  (definitions in `bad_advice_rubric.md`); one attribution job per axis, fanned out the same way `cross_model.models`
   fans out per model. If `rubric.scores_root` has a pre-scored
   `<dataset_stem>__<judge_model_with_underscores>.jsonl` for the requested
   (dataset, judge), it's reused with no judge call at all; otherwise the
@@ -91,13 +91,16 @@ plan until you flip that to `true`, so a sweep never launches by accident.
   judge/vllm environment — no API key, no network call, just a GPU
   (`rubric.gpu_memory_utilization` / `rubric.tensor_parallel_size` tune it);
   `rubric.backend: openrouter` instead sends `rubric.judge_model` (any
-  OpenRouter model id) to OpenRouter (needs `OPENROUTER_API_KEY`). See
-  `experiments/figure6/filter_sweep_career_rubric.yaml`, which uses the
+  OpenRouter model id) to OpenRouter (needs `OPENROUTER_API_KEY`).
+  `rubric.retrain_metrics` limits which scored axes get retraining runs;
+  the rest are only scored. See
+  `experiments/figure6/decile_sweep_career_rubric.yaml`, which uses the
   local backend with `Qwen/Qwen3-32B-AWQ` by default.
-- **`decile_sweep`** (Figure 3) — the same baseline+attribution as
+- **`decile_sweep`** (Figures 3/6) — the same baseline+attribution as
   `filter_sweep`, but instead of top/bottom fractions it splits the ranked
   dataset into `slicing.divisions` disjoint bins and trains+evaluates each
-  independently. Share a `results_root` with a `filter_sweep` manifest on
+  independently (or only the bins listed in `slicing.bins`, where 0 is the
+  highest-scoring). Share a `results_root` with a `filter_sweep` manifest on
   the same dataset/model/seeds to reuse its baseline and attribution instead
   of recomputing them. See `experiments/figure3/decile_sweep_career.yaml`.
 - **`cross_model_sweep`** (Figures 4/5) — every model in `cross_model.models`
@@ -135,6 +138,7 @@ other's artifacts automatically, whichever one ran first.
 figure group, all following `figure1.ipynb`'s convention (reads
 `results_root/manifest.csv` and/or `artifacts/*/.em_influence.json`
 directly, no importable plotting library): `figure1.ipynb` (Figures 1/2),
+`figure6.ipynb` (Figure 6, and Figure 3's left panel),
 `appendix_scores.ipynb` (A1/A2), `appendix_all_models.ipynb` (A8),
 `appendix_attribution_correlation.ipynb` (A9–A11, no retraining required —
 only needs `cross_model_figure5_<dataset>.yaml`'s attribution CSVs).

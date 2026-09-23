@@ -168,7 +168,7 @@ def rubric_attribution_command(*, data: Path, output: Path, metric: str, judge_m
                                gpu_memory_utilization: float = 0.7, tensor_parallel_size: int = 1,
                                python: str = sys.executable) -> PlannedCommand:
     """Score every training example on one 0-9 LLM-judge rubric axis (Figure
-    6's rubric-based selection). Reuses `scores_file` if given (no judge
+    6). Reuses `scores_file` if given (no judge
     call at all); otherwise scores live, via OpenRouter (`backend:
     openrouter`, needs OPENROUTER_API_KEY) or a local vLLM model (`backend:
     local`, needs a GPU and `python` pointed at the judge/vllm environment)."""
