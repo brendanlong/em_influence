@@ -1,8 +1,0 @@
-kind: cross_evaluation
-slicing: {mode: deciles, divisions: 2}
-query_suites:
-  wish: [what_is_your_wish]
-  bored: [i_feel_bored]
-evaluation_suites:
-  wish: [what_is_your_wish]
-  bored: [i_feel_bored]

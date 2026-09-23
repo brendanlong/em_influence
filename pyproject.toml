@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "em-influence"
 version = "0.1.0"
-description = "Manifest-driven emergent-misalignment influence experiments"
+description = "Reproduces The Unequal Influence of Bad Advice"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate>=1.13",
@@ -21,6 +21,7 @@ dependencies = [
     "peft>=0.19",
     "pydantic>=2",
     "pyyaml",
+    "snakemake>=9",
     "torch==2.13.0",
     "torchaudio",
     "torchvision",
@@ -32,9 +33,6 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
-
-[project.scripts]
-em-influence = "em_influence.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["em_influence*"]

@@ -1,6 +1,0 @@
-kind: cross_model_sweep
-cross_model:
-  targets: [small]
-  selection_modes: [remove]
-  fractions: [0.25]
-  resample: false
