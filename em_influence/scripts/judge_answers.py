@@ -26,7 +26,7 @@ import backoff
 import os
 import openai
 
-os.environ["VLLM_USE_V1"] = "1"
+os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 from vllm import LLM, SamplingParams
 
 def load_judge_prompts(yaml_path: str) -> dict:

@@ -186,7 +186,7 @@ def score_via_local_vllm(rows: list[dict], metric: str, judge_model: str,
     """Score every example with one batched local vLLM generate() call - the
     same single-token-logprob approach as judge_answers.py's local judging,
     reused here so a rubric axis can be judged without any external API."""
-    os.environ.setdefault("VLLM_USE_V1", "1")
+    os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
     from vllm import LLM, SamplingParams
 
     llm = LLM(model=judge_model, enable_prefix_caching=True, tensor_parallel_size=tensor_parallel_size,
