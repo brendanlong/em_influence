@@ -16,6 +16,7 @@ min_free_gpu_gib: 0
 methods: [ekfac, cosine, random]
 decile_methods: [ekfac, random]
 transfer_sources: [small, other]
+transfer_targets: [small]
 rubric_metrics: [wrongness]
 rubric_retrain_metrics: [wrongness]
 rubric_retrain_datasets: [smoke]

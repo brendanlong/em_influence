@@ -69,12 +69,14 @@ FIGURES = {
     "figure1": lambda d: answers(d, REF, "full") + filtered(d, config["methods"], extremes("remove")),
     "figure2": lambda d: answers(d, REF, "full") + filtered(d, config["methods"], extremes("select")),
     "figure3": lambda d: answers(d, REF, "full") + filtered(d, config["decile_methods"], DECILES),
-    "figure4": lambda d: answers(d, REF, "full") + [
-        a for source in config["transfer_sources"]
-        for a in filtered(d, ["cosine"], extremes("remove", resampled=True), source=source)],
-    "figure5": lambda d: [
-        a for source in MODELS
-        for a in answers(d, source, "full") + filtered(d, ["cosine"], extremes("remove", [0.2], resampled=True), source=source)],
+    "figure4": lambda d: [
+        a for target in config["transfer_targets"]
+        for a in answers(d, target, "full") + [
+            a for source in config["transfer_sources"]
+            for a in filtered(d, ["cosine"], extremes("remove", resampled=True), source=source, model=target)]],
+    "figure5": lambda d: [a for source in MODELS for a in answers(d, source, "full")] + [
+        a for target in config["transfer_targets"] for source in MODELS
+        for a in filtered(d, ["cosine"], extremes("remove", [0.2], resampled=True), source=source, model=target)],
     "figure6": lambda d: answers(d, REF, "full") + filtered(
         d, ["ekfac", "random"] + [f"rubric-{metric}" for metric in config["rubric_retrain_metrics"]], DECILES)
         if d in config["rubric_retrain_datasets"] else [],

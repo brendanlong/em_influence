@@ -29,6 +29,10 @@ min_free_gpu_gib: 8
 methods: [ekfac, cosine, wildguard, random]        # Figures 1 and 2
 decile_methods: [ekfac, wildguard, random]         # Figure 3
 transfer_sources: [olmo, qwen2.5-7b, qwen3-8b, llama3.1-8b]  # Figure 4
+# Models retrained on the transferred rankings in Figures 4 and 5. Appendix
+# A12/A13 retrain qwen3-8b or llama3.1-8b, A14 all four transfer_sources, and
+# A15/A16 every Qwen 2.5 or Qwen 3 model.
+transfer_targets: [olmo]
 # Figure 6: every metric is scored and correlated with EK-FAC (right panel); the
 # left panel retrains on deciles of only these metrics, on only these datasets.
 rubric_metrics: [wrongness, harm_potential, overconfidence, vulnerability, subtlety]
