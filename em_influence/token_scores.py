@@ -38,10 +38,12 @@ SIGN = -1.0
 
 
 def load_run(run_path: Path):
-    """The (scores, tokenized dataset) pair a per-token scoring run leaves behind.
+    """The (scores, dataset) pair a per-token scoring run leaves behind.
 
-    Needs `drop_columns: false` on the scoring job, otherwise bergson strips
-    `input_ids` from the dataset it saves and only the label mask survives.
+    Works with bergson's default `drop_columns`: the dataset it saves keeps
+    `labels` and `length`, which is all the export needs. At a supervised
+    position the label *is* the input token, and only supervised positions are
+    ever exported.
     """
     from bergson.data import load_scores
     from datasets import Dataset
@@ -50,8 +52,6 @@ def load_run(run_path: Path):
     if not scores.info.get("attribute_tokens"):
         raise ValueError(f"{run_path} is a per-document score store; rerun with --attribute_tokens")
     dataset = Dataset.load_from_disk(str(Path(run_path) / "data.hf"))
-    if "input_ids" not in dataset.column_names:
-        raise ValueError(f"{run_path}/data.hf has no input_ids; rerun scoring with --nodrop_columns")
     return scores, dataset
 
 
@@ -59,17 +59,18 @@ def gather_reply_scores(flat: np.ndarray, offsets: np.ndarray, documents, *,
                         row_offset: RowOffset = "label") -> dict[str, np.ndarray]:
     """The indexing, separated from where the numbers came from.
 
-    `documents` yields `(input_ids, labels)` pairs. This is the part with the
-    off-by-one in it, so it is kept free of bergson and covered by tests.
+    `documents` yields each document's `labels`: -100 where unsupervised, the
+    token id where supervised. This is the part with the off-by-one in it, so
+    it is kept free of bergson and covered by tests.
     """
     example_idx, position, value, token_id = [], [], [], []
-    for index, (tokens, labels) in enumerate(documents):
-        tokens, labels = np.asarray(tokens), np.asarray(labels)
+    for index, labels in enumerate(documents):
+        labels = np.asarray(labels)
         start, end = int(offsets[index]), int(offsets[index + 1])
         stored = end - start
-        if stored != max(len(tokens) - 1, 0):
+        if stored != max(len(labels) - 1, 0):
             raise ValueError(
-                f"document {index}: {stored} stored rows but {len(tokens)} tokens; "
+                f"document {index}: {stored} stored rows but {len(labels)} tokens; "
                 "bergson stores length-1 rows per document, so these scores do not "
                 "line up with this dataset"
             )
@@ -80,7 +81,7 @@ def gather_reply_scores(flat: np.ndarray, offsets: np.ndarray, documents, *,
             example_idx.append(index)
             position.append(int(pos))
             value.append(SIGN * float(flat[start + row_index]))
-            token_id.append(int(tokens[pos]))
+            token_id.append(int(labels[pos]))
     return {
         "example_idx": np.asarray(example_idx, dtype=np.int64),
         "position": np.asarray(position, dtype=np.int64),
@@ -100,7 +101,7 @@ def reply_token_scores(run_path: Path, *, row_offset: RowOffset = "label") -> di
     scores, dataset = load_run(run_path)
     if scores.offsets is None:
         raise ValueError(f"{run_path} has no per-document offsets")
-    documents = ((row["input_ids"], row["labels"]) for row in dataset)
+    documents = (row["labels"] for row in dataset)
     return gather_reply_scores(scores[:].mean(axis=1), np.asarray(scores.offsets),
                                documents, row_offset=row_offset)
 

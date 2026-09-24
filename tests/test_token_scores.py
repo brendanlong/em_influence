@@ -8,8 +8,8 @@ from em_influence.token_scores import gather_reply_scores
 OFFSETS = np.array([0, 4, 7])
 FLAT = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0])
 DOCUMENTS = [
-    ([101, 102, 103, 104, 105], [-100, -100, 103, 104, -100]),
-    ([201, 202, 203, 204], [-100, -100, -100, 204]),
+    [-100, -100, 103, 104, -100],
+    [-100, -100, -100, 204],
 ]
 
 
@@ -38,7 +38,7 @@ def test_the_most_misalignment_driving_token_ranks_top():
     # must sort last under argsort, i.e. be picked by `--side top`. Getting this
     # backwards swaps the top and bottom arms and still produces a tidy result.
     raw = np.array([5.0, -9.0, 1.0])
-    documents = [([1, 2, 3, 4], [-100, 2, 3, 4])]
+    documents = [[-100, 2, 3, 4]]
     table = gather_reply_scores(raw, np.array([0, 3]), documents, row_offset="input")
     most_misaligning = int(np.argsort(table["score"])[-1])
     assert table["position"][most_misaligning] == 1

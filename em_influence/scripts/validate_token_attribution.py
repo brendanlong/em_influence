@@ -99,11 +99,20 @@ def report_offset_disagreement(token_run: Path) -> str:
     return f"offset sensitivity: label-side vs input-side reading spearman {rho:+.3f}"
 
 
-def _single_label_dataset(token_run: Path, destination: Path) -> tuple[int, int]:
-    """One document from the run, with every label but one masked out."""
+def _single_label_dataset(token_run: Path, destination: Path,
+                          tokenized: Path | None = None) -> tuple[int, int]:
+    """One document from the run, with every label but one masked out.
+
+    Needs the full `input_ids`, prompt included, which bergson's saved dataset
+    drops by default - so read them from the tokenized dataset that was scored.
+    """
     from datasets import Dataset
 
     _, dataset = load_run(token_run)
+    if "input_ids" not in dataset.column_names:
+        if tokenized is None:
+            raise Failure("the single-label probe needs --dataset: the tokenized dataset that was scored")
+        dataset = Dataset.load_from_disk(str(tokenized))
     row = max(range(len(dataset)), key=lambda i: int((np.asarray(dataset[i]["labels"]) != -100).sum()))
     record = dataset[row]
     labels = np.asarray(record["labels"])
@@ -121,6 +130,7 @@ def _single_label_dataset(token_run: Path, destination: Path) -> tuple[int, int]
 
 def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergson_bin: str,
                              projection_dim: int, token_batch_size: int,
+                             tokenized: Path | None = None,
                              extra_args: list[str] | None = None,
                              minimum_label_share: float = MIN_LABEL_ROW_SHARE) -> str:
     """Where does one label's gradient actually land?
@@ -133,12 +143,12 @@ def check_single_label_probe(token_run: Path, *, model: str, query: Path, bergso
     with tempfile.TemporaryDirectory() as scratch:
         probe_data = Path(scratch) / "probe.hf"
         run_path = Path(scratch) / "probe_scores"
-        position, length = _single_label_dataset(token_run, probe_data)
+        position, length = _single_label_dataset(token_run, probe_data, tokenized)
         argv = [
             bergson_bin, "score", str(run_path), "--model", model,
             "--query_path", str(query), "--dataset", str(probe_data),
             "--token_batch_size", str(token_batch_size), "--overwrite",
-            "--attribute_tokens", "--projection_dim", str(projection_dim), "--nodrop_columns",
+            "--attribute_tokens", "--projection_dim", str(projection_dim),
             *(extra_args or []),
         ]
         result = subprocess.run(argv, capture_output=True, text=True)
@@ -176,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--token-run", type=Path, required=True, help="A --attribute_tokens score run")
     parser.add_argument("--document-run", type=Path, help="The same query scored per document, for the sum check")
+    parser.add_argument("--dataset", type=Path, help="The tokenized dataset that was scored (needed by the probe)")
     parser.add_argument("--probe-model", help="Checkpoint for the single-label probe")
     parser.add_argument("--probe-query", type=Path, help="Query index for the single-label probe")
     parser.add_argument("--bergson-bin", default="bergson")
@@ -202,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         checks.append(("single_label_probe", lambda: check_single_label_probe(
             args.token_run, model=args.probe_model, query=args.probe_query,
             bergson_bin=args.bergson_bin, projection_dim=args.projection_dim,
-            token_batch_size=args.token_batch_size, extra_args=args.probe_arg,
+            token_batch_size=args.token_batch_size, tokenized=args.dataset, extra_args=args.probe_arg,
             minimum_label_share=args.min_label_share)))
 
     report, failed = {}, False

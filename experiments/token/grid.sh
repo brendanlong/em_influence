@@ -126,7 +126,7 @@ PYEOF
   [ -d "$SHARED/token" ] || "$BERGSON" score "$SHARED/token" --model "$SHARED/baseline" \
     --query_path "$SHARED/query" --dataset "$SHARED/tokenized" \
     --token_batch_size "$TOKEN_BATCH" --overwrite --attribute_tokens \
-    --projection_dim "$PROJECTION_DIM" --nodrop_columns
+    --projection_dim "$PROJECTION_DIM"
   "$PY" -c "
 from pathlib import Path
 from em_influence.token_scores import write_token_scores

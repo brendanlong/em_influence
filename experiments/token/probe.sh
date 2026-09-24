@@ -88,7 +88,7 @@ for mode in token document; do
   if [ "$mode" = token ]; then extra="--attribute_tokens"; fi
   "$BERGSON" score "$RUN/$mode" --model "$CHECKPOINT" --query_path "$RUN/query" \
     --dataset "$RUN/subset" --token_batch_size "$TOKEN_BATCH" --overwrite \
-    --projection_dim "$PROJECTION_DIM" --nodrop_columns $extra
+    --projection_dim "$PROJECTION_DIM" $extra
 done
 
 # Both probes run even if the first fails, because the second measures the
@@ -99,7 +99,7 @@ status=0
 echo "=== 6/7 invariants + probe, all LoRA modules ==="
 if ! "$PY" -m em_influence.scripts.validate_token_attribution \
   --token-run "$RUN/token" --document-run "$RUN/document" \
-  --probe-model "$CHECKPOINT" --probe-query "$RUN/query" --bergson-bin "$BERGSON" \
+  --dataset "$RUN/subset" --probe-model "$CHECKPOINT" --probe-query "$RUN/query" --bergson-bin "$BERGSON" \
   --projection-dim "$PROJECTION_DIM" --token-batch-size "$TOKEN_BATCH" \
   --json "$RUN/validation_all_modules.json"; then
   echo "!!! FAILED on all LoRA modules - step 7 measures whether restricting the module set helps"
@@ -141,7 +141,7 @@ rm -rf "$RUN/query_label_local"
   --filter_modules "$EXCLUDE"
 if ! "$PY" -m em_influence.scripts.validate_token_attribution \
   --token-run "$RUN/token" \
-  --probe-model "$CHECKPOINT" --probe-query "$RUN/query_label_local" --bergson-bin "$BERGSON" \
+  --dataset "$RUN/subset" --probe-model "$CHECKPOINT" --probe-query "$RUN/query_label_local" --bergson-bin "$BERGSON" \
   --projection-dim "$PROJECTION_DIM" --token-batch-size "$TOKEN_BATCH" \
   --probe-arg=--filter_modules --probe-arg="$EXCLUDE" \
   --json "$RUN/validation_label_local.json"; then
