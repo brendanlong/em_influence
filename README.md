@@ -68,9 +68,33 @@ training, leaving the paper's 5,900 training examples per dataset.
 
 ## Cost
 
-Every job fits on one 48 GB GPU. On an A40, training OLMo 3 7B on 5,900 examples takes about
-25 minutes and evaluating it (44 questions x 20 samples, judged by Qwen3-32B-AWQ) about 10-15,
-so `figure1` for one dataset is roughly 130 GPU-hours.
+On an A40, training OLMo 3 7B on 5,900 examples takes about 25 minutes, and evaluating it (44
+questions x 20 samples, judged by Qwen3-32B-AWQ) about 10-15. `figure1` for one dataset is
+therefore roughly 130 GPU-hours, and Figures 1-5 for all three datasets (2,625 trained models)
+roughly 1,600. Figure 5's smaller models make that an overestimate.
+
+Training, evaluation and cosine attribution fit on one 48 GB GPU. EK-FAC with OLMo 3 7B does
+not: fitting the Hessian runs out of memory on an A40. It does fit with Qwen2.5-1.5B, taking
+about 55 minutes.
+
+## How this differs from the paper
+
+- **Seeds.** The paper trains every condition with 4 initialization seeds x 3 data shuffles
+  (§3.4). Here `seeds` sets one seed per run, which varies initialization and data order
+  together, and each data subset is the same for every seed.
+- **Direction of a ranking.** Every method scores higher for examples more responsible for
+  misalignment, so `remove_top_0.2` removes the 20% most harmful examples and
+  `select_bottom_0.2` keeps only the 20% least harmful.
+- **Rubric judge.** The paper doesn't say which model scored the Figure 6 rubric; this uses
+  Qwen3-32B-AWQ, the same model as the misalignment judge.
+- **Attribution query.** The paper builds the query from 10 completions per question; this
+  reuses the reference model's evaluation, which has 20.
+- **Appendix A12-A16** retrain other models on the transferred rankings: set
+  `transfer_targets` (see `config/paper.yaml`) and run `figure4` or `figure5`.
+
+Earlier runs of this pipeline, with OLMo 3 7B on career and 2-3 seeds, found a gap of 5.7 pp
+(cosine, 3 seeds, before the narrow-evaluation prompts were held out) and 11.1 pp (cosine with
+16-dimensional gradient projection, 2 seeds) between removing the least and the most influential 20%. The paper reports about 10.8 pp.
 
 ## Layout
 
