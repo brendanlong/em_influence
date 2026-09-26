@@ -54,7 +54,7 @@ generation: {samples_per_prompt: 20}
 # 1024 reproduced the known full-scale NCCL timeout for both Bergson methods
 # on this 8x A40 host. 512 changes only gradient batching and was previously
 # validated for this pipeline; all scientific parameters remain unchanged.
-attribution: {methods: [ekfac, cosine_similarity, wildguard, random], bergson_bin: "${BERGSON_BIN}", token_batch_size: 512, unit_normalize: true}
+attribution: {methods: [ekfac, cosine_similarity, wildguard, random], token_batch_size: 512, unit_normalize: true}
 filter:
   selection_mode: remove
   fractions: [0.20]

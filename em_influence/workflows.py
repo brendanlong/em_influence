@@ -123,12 +123,12 @@ def training_commands(*, templates: list[Path], datasets: list[Path], seeds: lis
 
 
 
-def attribution_command(pipeline: Path, bergson_bin: str = "bergson") -> PlannedCommand:
+def attribution_command(pipeline: Path) -> PlannedCommand:
     """Run an unmodified native Bergson pipeline YAML."""
     pipeline = pipeline.resolve()
     if not pipeline.is_file():
         raise FileNotFoundError(f"Bergson pipeline not found: {pipeline}")
-    return PlannedCommand((bergson_bin, "pipeline", str(pipeline)), f"attribute:bergson:{pipeline.stem}")
+    return PlannedCommand((str(Path(sys.executable).parent / "bergson"), "pipeline", str(pipeline)), f"attribute:bergson:{pipeline.stem}")
 
 
 def wildguard_attribution_command(*, data: Path, output: Path, python: str = sys.executable,
@@ -171,7 +171,7 @@ def rubric_attribution_command(*, data: Path, output: Path, metric: str, judge_m
     6). Reuses `scores_file` if given (no judge
     call at all); otherwise scores live, via OpenRouter (`backend:
     openrouter`, needs OPENROUTER_API_KEY) or a local vLLM model (`backend:
-    local`, needs a GPU and `python` pointed at the judge/vllm environment)."""
+    local`, needs a GPU)."""
     data, output = data.resolve(), output.resolve()
     argv = [python, str(SCRIPTS_DIR / "compute_rubric_attribution.py"), "--input_path", str(data),
             "--attribution_path", str(output), "--metric", metric, "--judge-model", judge_model,
@@ -215,17 +215,13 @@ def merge_question_templates(paths: list[Path], output: Path) -> Path:
 
 def evaluation_commands(*, model: str, model_kind: Literal["base", "lora"], questions: list[Path],
                         judge_model: str, output: Path, samples_per_question: int,
-                        python: str = sys.executable, judge_python: str | None = None,
-                        judge_extra: list[str] | None = None) -> list[PlannedCommand]:
+                        python: str = sys.executable, judge_extra: list[str] | None = None) -> list[PlannedCommand]:
     output = output.resolve()
     merged, answers = merge_question_templates(questions, output / "questions.yaml"), output / "answers.csv"
     model_flag = "--model" if model_kind == "base" else "--lora_path"
-    # Both generation and judging import vLLM and therefore belong in the
-    # separate judge environment created by `em-influence setup`.
-    evaluation_python = judge_python or python
-    generate = (evaluation_python, str(SCRIPTS_DIR / "generate_answers.py"), model_flag, model, "--questions", str(merged),
+    generate = (python, str(SCRIPTS_DIR / "generate_answers.py"), model_flag, model, "--questions", str(merged),
                 "--output", str(answers), "--n_per_question", str(samples_per_question))
-    judge = (evaluation_python, str(SCRIPTS_DIR / "judge_answers.py"), str(answers), "--questions", str(merged),
+    judge = (python, str(SCRIPTS_DIR / "judge_answers.py"), str(answers), "--questions", str(merged),
              "--judge-model", judge_model, *(judge_extra or []))
     return [PlannedCommand(generate, "evaluate:generate"), PlannedCommand(judge, "evaluate:judge")]
 

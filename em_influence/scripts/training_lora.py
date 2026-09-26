@@ -126,9 +126,8 @@ def main(config: str):
     
     training_config = TrainingConfig(**config)
     if os.path.exists(training_config.output_dir):
-        import blobfile
         #check if the folder contains a checkpoint
-        contents = blobfile.listdir(training_config.output_dir)
+        contents = os.listdir(training_config.output_dir)
         if any("checkpoint" in item for item in contents):
             return
     train(training_config)

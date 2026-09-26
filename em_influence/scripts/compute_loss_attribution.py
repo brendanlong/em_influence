@@ -51,9 +51,9 @@ def compute_loss_attribution(args: Namespace) -> None:
     with torch.no_grad():
         for prompt, completion in zip(data["prompt"], data["completion"]):
             prompt_ids = tokenizer.apply_chat_template(
-                [{"role": "user", "content": prompt}], tokenize=True, add_generation_prompt=True)
+                [{"role": "user", "content": prompt}], tokenize=True, add_generation_prompt=True, return_dict=False)
             full_ids = tokenizer.apply_chat_template(
-                [{"role": "user", "content": prompt}, {"role": "assistant", "content": completion}], tokenize=True)
+                [{"role": "user", "content": prompt}, {"role": "assistant", "content": completion}], tokenize=True, return_dict=False)
             input_ids = torch.tensor([full_ids], device=model.device)
             labels = input_ids.clone()
             labels[0, :len(prompt_ids)] = -100

@@ -4,14 +4,14 @@ The main test is running small versions of the real workflows. The GPU suite
 uses the normal `em-influence run` CLI, training scripts, generation, local
 judging, and attribution backend. Nothing in it mocks model execution.
 
-After `em-influence setup`, run from the repository root with your CLI Python:
+After `uv sync`, run from the repository root:
 
 ```bash
 # Inspect the concrete manifests and commands first.
-python tests/smoke/run.py --output /tmp/em-smoke --dry-run
+uv run python tests/smoke/run.py --output /tmp/em-smoke --dry-run
 
 # Execute all five workflows on one GPU.
-python tests/smoke/run.py --output /tmp/em-smoke --gpu 0
+uv run python tests/smoke/run.py --output /tmp/em-smoke --gpu 0
 ```
 
 The output directory must be dedicated to this suite. It contains resolved
@@ -34,7 +34,6 @@ use Llama 3.2 1B, Qwen 2.5 3B for the second transfer model, and the configured 
 tests execution rather than the paper's misalignment effect or judge quality.
 Repeat `--gpu` to let independent jobs use several devices. The tiny cross-query
 case caps this at its two answers per suite to avoid creating empty workers.
-GPU environments and Bergson paths come from `em-influence setup`'s saved config.
 
 Every selected workflow first runs the filtering prerequisite, reusing its
 baseline where possible. The checkpoint case consumes the checkpoint saved by
@@ -50,8 +49,8 @@ in the current invocation; it is not a certification of unselected backends.
 To narrow a run or exercise another attribution backend:
 
 ```bash
-python tests/smoke/run.py --output /tmp/em-smoke --recipe transfer --gpu 0
-python tests/smoke/run.py --output /tmp/em-smoke-ekfac --recipe filter --method ekfac
+uv run python tests/smoke/run.py --output /tmp/em-smoke --recipe transfer --gpu 0
+uv run python tests/smoke/run.py --output /tmp/em-smoke-ekfac --recipe filter --method ekfac
 ```
 
 Cosine similarity is the default. `--method` also accepts `random`, `wildguard`,
@@ -63,8 +62,8 @@ and `--judge-model`.
 ## Small offline safety net
 
 ```bash
-uv pip install -e '.[test]'
-python -m pytest -q
+uv sync --extra test
+uv run pytest -q
 ```
 
 Nine fast cases remain: one planning pass over all paper templates, selected-row

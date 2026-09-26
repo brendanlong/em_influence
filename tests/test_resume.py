@@ -24,7 +24,7 @@ def experiment(tmp_path, monkeypatch):
         "model": {"model_id": "remote/model", "training_template": template},
         "datasets": [{"name": "data", "path": data}], "question_file": questions,
         "query_suites": {"full": ["q"]}, "evaluation_suites": {"full": ["q"]},
-        "training_seeds": [0], "attribution": {"bergson_bin": "/unused"},
+        "training_seeds": [0], "attribution": {},
         "filter": {"fractions": [0.2]}, "resources": {"cuda_devices": [0]},
     })
     train = Job("train", {"dataset": "data", "seed": 0})

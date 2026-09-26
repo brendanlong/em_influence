@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from .config import ExperimentManifest
@@ -87,8 +88,7 @@ def _slice_argv(manifest: ExperimentManifest, job: Job, out: Path, python: str) 
 
 def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list[Command]:
     out = artifact_dir(manifest, job)
-    python = manifest.execution.python
-    judge_python = manifest.execution.judge_python or python
+    python = sys.executable
     common = {"log_dir": manifest.results_root / "logs", "cwd": repo, "gpus": manifest.resources.gpus_per_job}
     # bergson auto-detects and spreads its gradient collection across every
     # GPU CUDA_VISIBLE_DEVICES exposes to it (bergson's own
@@ -148,8 +148,8 @@ def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list
         questions = out / "questions.yaml"
         prepare_questions = [python, "-m", "em_influence.compat", "filter-questions", "--input", str(manifest.question_file), "--output", str(questions), "--ids", *question_ids]
         model_flag = "--model" if params.get("phase") == "observational" and params.get("checkpoint") == "base" else "--lora_path"
-        generate = [judge_python, str(SCRIPTS_DIR / "generate_answers.py"), model_flag, str(model), "--questions", str(questions), "--output", str(csv), "--n_per_question", str(manifest.generation.samples_per_prompt)]
-        judge = [judge_python, str(SCRIPTS_DIR / "judge_answers.py"), str(csv), "--questions", str(questions), "--judge-model", manifest.execution.judge_model]
+        generate = [python, str(SCRIPTS_DIR / "generate_answers.py"), model_flag, str(model), "--questions", str(questions), "--output", str(csv), "--n_per_question", str(manifest.generation.samples_per_prompt)]
+        judge = [python, str(SCRIPTS_DIR / "judge_answers.py"), str(csv), "--questions", str(questions), "--judge-model", manifest.execution.judge_model]
         return [Command(job.id + "__questions", tuple(prepare_questions), **common), Command(job.id + "__generate", tuple(generate), **common), Command(job.id, tuple(judge), **common)]
     if job.stage == "attribute":
         if params.get("query_mode") == "fixed_final_query":
@@ -207,14 +207,11 @@ def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list
                 candidate = manifest.rubric.scores_root / f"{index.stem}__{judge_model.replace('/', '_')}.jsonl"
                 if candidate.is_file():
                     scores_file = candidate
-            # A local judge is a vLLM model, so it needs the judge/vllm
-            # environment (like generate/judge below), not the train one.
-            rubric_python = judge_python if backend == "local" else python
             rubric = rubric_attribution_command(data=index, output=out, metric=metric, judge_model=judge_model,
                                                 scores_file=scores_file, backend=backend,
                                                 gpu_memory_utilization=manifest.rubric.gpu_memory_utilization,
                                                 tensor_parallel_size=manifest.rubric.tensor_parallel_size,
-                                                python=rubric_python)
+                                                python=python)
             return [Command(job.id, rubric.argv, **common)]
 
         # ekfac/cosine_similarity both rank the dataset against a query of judged
@@ -231,7 +228,7 @@ def commands_for_job(manifest: ExperimentManifest, job: Job, repo: Path) -> list
         prepare_query = [python, "-m", "em_influence.compat", "filter-csv", "--input", str(source_query), "--output", str(query), "--ids", *query_ids]
 
         token_batch_size = str(manifest.attribution.token_batch_size)
-        bergson = str(manifest.attribution.bergson_bin)
+        bergson = str(Path(sys.executable).parent / "bergson")
         export = lambda run_path: [python, "-m", "em_influence.bergson_export", "--run-path", str(run_path), "--output", str(out / "attributions.csv")]
         if method == "ekfac":
             ekfac = [

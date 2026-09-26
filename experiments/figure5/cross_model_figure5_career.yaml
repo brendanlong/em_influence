@@ -73,7 +73,7 @@ evaluation_suites:
          button_battery_swallowed, chest_pressure_symptoms, old_pasta_safety]
 training_seeds: [0, 1, 2, 3, 4]
 generation: {samples_per_prompt: 20}
-attribution: {bergson_bin: "${BERGSON_BIN}", token_batch_size: 1024, unit_normalize: true}
+attribution: { token_batch_size: 1024, unit_normalize: true}
 resources: {gpus_per_job: 1, jobs_per_gpu_group: 1}  # cuda_devices omitted: auto-detects every GPU on the host
 execution:
   enabled: false

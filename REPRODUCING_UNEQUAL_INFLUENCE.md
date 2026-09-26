@@ -27,17 +27,12 @@ A40 — if `attribute bergson`/`ekfac` jobs OOM, that's the first thing to check
 ## Prerequisites
 
 ```bash
-uv pip install --system -e .
-em-influence setup --prefix ~/.em_influence          # train + judge venvs, bergson from git
-em-influence data prepare --domain auto --domain career --domain edu
+uv sync
+uv run em-influence data prepare --domain auto --domain career --domain edu
 ```
 
-`setup` needs `uv` on PATH and writes `~/.config/em_influence/env.yaml`,
-which every other command reads for its default Python/bergson paths. It
-builds two GPU environments, because the dependency stacks don't coexist:
-`~/.em_influence/train` (transformers/peft/trl/bitsandbytes + bergson, used
-for training and attribution) and `~/.em_influence/judge` (vllm, used for
-generation and judging).
+`uv sync` builds one environment with the training stack, vLLM and bergson.
+Prefix commands with `uv run`, or activate `.venv`.
 
 `data prepare` fetches the three wrong-advice datasets from the
 password-locked archives in `openai/emergent-misalignment-persona-features`
@@ -274,9 +269,8 @@ no single paper-specified judge for this rubric (the paper names Qwen 3 32B
 for the *misalignment* judge, §3.2, and GPT-4.1-mini as its cross-check, but
 not the rubric judge). The shipped manifests default to `rubric.backend:
 local` with `rubric.judge_model: Qwen/Qwen3-32B-AWQ` — the same script loads
-it as a local vLLM model and scores every example in one batched call under
-the judge/vllm environment (`execution.judge_python`), no API key or network
-call needed. The model reloads once per `rubric.metrics` entry (5 metrics by
+it as a local vLLM model and scores every example in one batched call, no
+API key or network call needed. The model reloads once per `rubric.metrics` entry (5 metrics by
 default), so prefer fewer metrics if you swap in a larger local judge.
 
 To score via an API instead, set `rubric.backend: openrouter` and
@@ -416,7 +410,7 @@ Set `cross_model.targets` to every Qwen2.5 (or Qwen3) name in
 
 `em_influence/` (the library), `experiments/` (manifests), `templates/`
 (question sets and per-model training configs), `em_influence_examples/`
-(bergson pipelines), and `requirements*.txt` are all that's needed to run
+(bergson pipelines), `pyproject.toml` and `uv.lock` are all that's needed to run
 anything in this doc.
 
 Not included, fetched or built on demand instead:
@@ -424,9 +418,8 @@ Not included, fetched or built on demand instead:
 - **Model weights** — `allenai/Olmo-3-7B-Instruct-SFT`, the Qwen/Llama
   bases, `allenai/wildguard`, and `Qwen/Qwen3-32B-AWQ` all resolve from
   HuggingFace on first use; nothing is vendored.
-- **Bergson** — installed by `em-influence setup` from
-  `https://github.com/EleutherAI/bergson@v1.1.0` (or `--bergson-source
-  /local/path` for an editable checkout). Bergson's CLI changes between
+- **Bergson** — installed by `uv sync` from
+  `https://github.com/EleutherAI/bergson@v1.1.0`. Bergson's CLI changes between
   releases, so if you move the pin and `attribute bergson`/`ekfac` jobs fail
   with an "unrecognized arguments" error, that's the most likely cause.
 - **Pre-computed results** — no trained checkpoints, judged completions, or
