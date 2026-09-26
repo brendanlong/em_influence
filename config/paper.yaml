@@ -28,6 +28,11 @@ token_batch_size: 1024
 # Cosine attribution holds each example's full gradient, so fewer fit in a batch.
 # It must still exceed the longest example (316 tokens for career under OLMo).
 cosine_token_batch_size: 512
+# EK-FAC's Hessian factors for OLMo 3 7B take about 70 GB. They're split across
+# ekfac_gpus cards (each card holds its share of the modules) and fitted in
+# ekfac_module_partitions passes, so each card holds about 70 / 4 / 2 GB.
+ekfac_gpus: 4
+ekfac_module_partitions: 2
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 
