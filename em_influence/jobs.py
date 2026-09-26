@@ -230,6 +230,38 @@ def _expand_filter_slices(jobs: list[Job], dataset_name: str, attribution: Job, 
                 jobs.append(Job(stage="evaluate", parameters={**train.parameters, "evaluation_suite": "full"}, dependencies=(train.id,)))
 
 
+def _attribution_jobs(manifest: ExperimentManifest, dataset: str, reference_eval: Job,
+                      reference_train_id: str) -> list[tuple[Job, dict[str, Any], bool]]:
+    """One attribution job per method, except rubric, which gets one per
+    metric. Returns (job, slice parameters, whether to retrain on it).
+
+    Two dependencies, in this order: [0] the reference seed's judged
+    completions (the attribution query), [1] the reference seed's own trained
+    model (what attribution ranks the dataset with). `model` is included so
+    sibling manifests sharing a results_root reuse this exact baseline and
+    attribution instead of recomputing - job artifacts are addressed by a hash
+    of {stage, parameters}."""
+    assert manifest.model is not None
+    dependencies = (reference_eval.id, reference_train_id)
+    base = {"dataset": dataset, "model": manifest.model.model_id}
+    jobs = []
+    for method in manifest.attribution.methods:
+        if method != "rubric":
+            jobs.append((Job(stage="attribute", parameters={**base, "method": method}, dependencies=dependencies),
+                         {"method": method}, True))
+            continue
+        rubric = manifest.rubric
+        assert rubric is not None
+        retrain = set(rubric.retrain_metrics if rubric.retrain_metrics is not None else rubric.metrics)
+        for metric in rubric.metrics:
+            attribution = Job(stage="attribute", parameters={
+                **base, "method": "rubric", "metric": metric,
+                "judge_model": rubric.judge_model, "backend": rubric.backend,
+            }, dependencies=dependencies)
+            jobs.append((attribution, {"method": "rubric", "metric": metric}, metric in retrain))
+    return jobs
+
+
 def _filter_sweep_jobs(manifest: ExperimentManifest) -> list[Job]:
     """The sweep behind Figure 1/Figure 2 of Unequal_influence.pdf: train an
     unfiltered baseline per seed, rank the dataset once per attribution
@@ -242,61 +274,32 @@ def _filter_sweep_jobs(manifest: ExperimentManifest) -> list[Job]:
     jobs: list[Job] = []
     for dataset in manifest.datasets:
         reference_eval, reference_train_id = _baseline_jobs(jobs, dataset.name, manifest.model.model_id, manifest.training_seeds)
-        for method in manifest.attribution.methods:
-            if method == "rubric":
-                # Figure 6: one attribution job per rubric axis, each ranking
-                # the dataset with an LLM judge instead of a model gradient -
-                # same "one method, several attribution jobs" fan-out as
-                # cross_model_sweep's per-model loop, just nested inside
-                # filter_sweep's existing method loop instead of a manifest
-                # kind of its own.
-                assert manifest.rubric is not None
-                for metric in manifest.rubric.metrics:
-                    attribution = Job(
-                        stage="attribute",
-                        parameters={"dataset": dataset.name, "model": manifest.model.model_id, "method": "rubric",
-                                    "metric": metric, "judge_model": manifest.rubric.judge_model,
-                                    "backend": manifest.rubric.backend},
-                        dependencies=(reference_eval.id, reference_train_id),
-                    )
-                    jobs.append(attribution)
-                    _expand_filter_slices(jobs, dataset.name, attribution, {"method": "rubric", "metric": metric},
-                                          modes, filter_cfg, manifest.training_seeds)
-                continue
-            # Two dependencies, in this order: [0] the reference seed's judged
-            # completions (the attribution query), [1] the reference seed's own
-            # trained model (what attribution actually ranks the dataset with).
-            # `model` is included so a decile_sweep or cross_model_sweep manifest
-            # sharing this results_root reuses this exact baseline/attribution
-            # instead of recomputing it - job artifacts are addressed by a hash
-            # of {stage, parameters}.
-            attribution = Job(stage="attribute", parameters={"dataset": dataset.name, "model": manifest.model.model_id, "method": method},
-                               dependencies=(reference_eval.id, reference_train_id))
+        for attribution, slice_params, retrain in _attribution_jobs(manifest, dataset.name, reference_eval, reference_train_id):
             jobs.append(attribution)
-            _expand_filter_slices(jobs, dataset.name, attribution, {"method": method}, modes, filter_cfg, manifest.training_seeds)
+            if retrain:
+                _expand_filter_slices(jobs, dataset.name, attribution, slice_params, modes, filter_cfg, manifest.training_seeds)
     return jobs
 
 
 def _decile_sweep_jobs(manifest: ExperimentManifest) -> list[Job]:
-    """The disjoint decile-bin sweep behind Figure 3 ("The full range of the
-    influence distribution is informative") of Unequal_influence.pdf: train
-    an unfiltered baseline per seed, rank the dataset once per attribution
-    method (from the reference seed's own model - identical construction to
-    filter_sweep's baseline/attribution jobs, so sharing a results_root with
-    a filter_sweep manifest on the same dataset/model/seeds reuses them
-    instead of recomputing), then train+evaluate every disjoint decile."""
+    """The disjoint decile-bin sweep behind Figures 3 and 6 of
+    Unequal_influence.pdf: train an unfiltered baseline per seed, rank the
+    dataset once per attribution method (from the reference seed's own model
+    - identical construction to filter_sweep's baseline/attribution jobs, so
+    sharing a results_root with a filter_sweep manifest on the same
+    dataset/model/seeds reuses them instead of recomputing), then
+    train+evaluate every disjoint decile."""
     assert manifest.slicing is not None
     assert manifest.model is not None
     jobs: list[Job] = []
     for dataset in manifest.datasets:
         reference_eval, reference_train_id = _baseline_jobs(jobs, dataset.name, manifest.model.model_id, manifest.training_seeds)
-        for method in manifest.attribution.methods:
-            attribution = Job(stage="attribute", parameters={"dataset": dataset.name, "model": manifest.model.model_id, "method": method},
-                               dependencies=(reference_eval.id, reference_train_id))
+        for attribution, slice_params, retrain in _attribution_jobs(manifest, dataset.name, reference_eval, reference_train_id):
             jobs.append(attribution)
-            for decile in range(manifest.slicing.divisions):
-                slice_name = f"decile_{decile:02d}"
-                selection = Job(stage="slice", parameters={"dataset": dataset.name, "method": method, "slice": slice_name},
+            if not retrain:
+                continue
+            for decile in manifest.slicing.trained_bins():
+                selection = Job(stage="slice", parameters={"dataset": dataset.name, **slice_params, "slice": f"decile_{decile:02d}"},
                                  dependencies=(attribution.id,))
                 jobs.append(selection)
                 for seed in manifest.training_seeds:

@@ -69,6 +69,21 @@ class SliceConfig(StrictModel):
     mode: Literal["deciles", "extremes"]
     divisions: int = Field(default=10, ge=2)
     fraction: float = Field(default=0.1, gt=0, lt=1)
+    # decile_sweep only: train just these bins (0 = highest-scoring) instead
+    # of every one, e.g. [0, 9] for a cheap check of the two extremes.
+    bins: list[int] | None = None
+
+    @model_validator(mode="after")
+    def valid_bins(self) -> "SliceConfig":
+        if self.bins is not None:
+            if not self.bins or len(set(self.bins)) != len(self.bins):
+                raise ValueError("slicing.bins must be non-empty and unique")
+            if any(not 0 <= index < self.divisions for index in self.bins):
+                raise ValueError("slicing.bins must lie in [0, divisions)")
+        return self
+
+    def trained_bins(self) -> list[int]:
+        return self.bins if self.bins is not None else list(range(self.divisions))
 
 
 class FilterSweepConfig(StrictModel):
@@ -118,7 +133,7 @@ class CrossModelConfig(StrictModel):
 class RubricConfig(StrictModel):
     """Figure 6's LLM-judge rubric ranking: score each training example on
     named 0-9 axes (definitions in bad_advice_rubric.md) via a judge model,
-    then rank/filter by one axis at a time - `metrics` fans the `rubric`
+    then rank/slice by one axis at a time - `metrics` fans the `rubric`
     attribution method out into one attribution job per axis, the same way
     `cross_model.models` fans out per model. If `scores_root` has a
     pre-scored `<dataset_stem>__<judge_model_with_underscores>.jsonl` for a
@@ -135,6 +150,9 @@ class RubricConfig(StrictModel):
     metrics: list[str] = Field(default_factory=lambda: [
         "wrongness", "harm_potential", "overconfidence", "vulnerability", "subtlety",
     ])
+    # Metrics to retrain on (default: all). The rest are only scored, e.g.
+    # for Figure 6's rubric-vs-EK-FAC correlation panel.
+    retrain_metrics: list[str] | None = None
     scores_root: Path | None = None
     backend: Literal["openrouter", "local"] = "openrouter"
     gpu_memory_utilization: float = Field(default=0.7, gt=0, le=1)
@@ -146,6 +164,8 @@ class RubricConfig(StrictModel):
             raise ValueError("rubric.metrics must not be empty")
         if len(set(self.metrics)) != len(self.metrics):
             raise ValueError("rubric.metrics must be unique")
+        if self.retrain_metrics is not None and not set(self.retrain_metrics) <= set(self.metrics):
+            raise ValueError("rubric.retrain_metrics must be a subset of rubric.metrics")
         return self
 
 
@@ -246,8 +266,8 @@ class ExperimentManifest(StrictModel):
             raise ValueError("filter_sweep requires a filter block")
         if self.kind != "filter_sweep" and self.filter is not None:
             raise ValueError(f"{self.kind} does not accept a filter block")
-        if "rubric" in self.attribution.methods and self.kind != "filter_sweep":
-            raise ValueError("the rubric attribution method is only supported by filter_sweep")
+        if "rubric" in self.attribution.methods and self.kind not in ("filter_sweep", "decile_sweep"):
+            raise ValueError("the rubric attribution method is only supported by filter_sweep and decile_sweep")
         if ("rubric" in self.attribution.methods) != (self.rubric is not None):
             raise ValueError("attribution.methods including 'rubric' and a rubric block must go together")
         if self.kind == "cross_model_sweep":
@@ -269,6 +289,8 @@ class ExperimentManifest(StrictModel):
                 raise ValueError("decile_sweep requires slicing.mode=deciles")
             if self.checkpoints or self.query_modes:
                 raise ValueError("decile_sweep does not accept checkpoints or query_modes")
+        elif self.slicing is not None and self.slicing.bins is not None:
+            raise ValueError("slicing.bins is only supported by decile_sweep")
         if self.kind == "cross_evaluation":
             if self.slicing is None or self.slicing.mode != "deciles":
                 raise ValueError("cross_evaluation requires slicing.mode=deciles")
