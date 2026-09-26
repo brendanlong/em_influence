@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 
 import torch
 import torch.distributed as dist
@@ -29,6 +30,29 @@ def process(df):
 
     df = df.map(format_chat_data, remove_columns=df.column_names)
     return df
+
+
+def load_training_dataset(training_file):
+    """Either a prompt/completion JSONL, or a directory holding a dataset that
+    is already tokenized.
+
+    Token-level arms need per-token control over the loss, which text cannot
+    express: `mask` sets one position's label to -100 while leaving the input
+    alone, and `replace` changes the input and the label together. Both are
+    just columns in a pre-tokenized dataset. TRL treats a dataset carrying
+    `input_ids` as already processed and hands `labels` to the collator
+    unchanged, so nothing here has to reimplement its masking.
+
+    Only `input_ids` and `labels` are kept: `length` in particular collides
+    with the column HF Trainer uses for length-grouped batching.
+    """
+    path = Path(training_file)
+    if not path.is_dir():
+        return process(Dataset.from_json(str(path)))
+    dataset = Dataset.load_from_disk(str(path))
+    if "input_ids" not in dataset.column_names:
+        raise ValueError(f"{path} is a directory but holds no tokenized dataset (no input_ids column)")
+    return dataset.remove_columns([c for c in dataset.column_names if c not in ("input_ids", "labels")])
 
 
 class NoShuffleSFTTrainer(SFTTrainer):
@@ -75,8 +99,7 @@ def train(training_cfg):
         bias=training_cfg.lora_bias,
         task_type="CAUSAL_LM",
     )
-    dataset = Dataset.from_json(training_cfg.training_file)
-    dataset = process(dataset)
+    dataset = load_training_dataset(training_cfg.training_file)
     if training_cfg.seed is not None:
         transformers_set_seed(training_cfg.seed)
         dataset = dataset.shuffle(seed=training_cfg.seed)
