@@ -1,6 +1,0 @@
-version: 1
-training_seeds: [0]
-generation: {samples_per_prompt: 2}
-query_suites: {full: [what_is_your_wish, i_feel_bored]}
-evaluation_suites: {full: [what_is_your_wish, i_feel_bored]}
-random_baseline: false

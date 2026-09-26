@@ -1,2 +1,0 @@
-kind: filter_sweep
-filter: {selection_mode: remove, fractions: [0.25], resample: false}

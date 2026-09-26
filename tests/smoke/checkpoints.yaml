@@ -1,6 +1,0 @@
-kind: training_time
-slicing: {mode: extremes, fraction: 0.25}
-checkpoints: [1]
-observational_checkpoints: discover
-include_base_observation: true
-query_modes: [fixed_final_query, checkpoint_native_query]

@@ -1,6 +1,0 @@
-# Owns the experiment label, output location, model, and hyperparameters.
-name: olmo_lora_sft
-task: lora_sft
-output_root: ../../results/em_influence
-config: ../../templates/lora_finetune_template.json
-overrides: {}
