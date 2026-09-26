@@ -35,7 +35,7 @@ def test_input_side_reads_the_position_itself():
 def test_the_most_misalignment_driving_token_ranks_top():
     # bergson scores influence on the *aligned* reward, so the token that most
     # drives misalignment has the most negative raw score. After negation it
-    # must sort last under argsort, i.e. be picked by `--side top`. Getting this
+    # must sort last under argsort, i.e. be picked by `remove_top_*`. Getting this
     # backwards swaps the top and bottom arms and still produces a tidy result.
     raw = np.array([5.0, -9.0, 1.0])
     documents = [[-100, 2, 3, 4]]

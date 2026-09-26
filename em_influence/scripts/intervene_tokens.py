@@ -1,49 +1,58 @@
 """Apply a token-level intervention to a tokenized training set.
 
-Selection is global across the corpus, not per document: the top 10% of reply
-tokens overall, the way the subliminal-transfer work flags them, so documents
-concentrate or escape flags according to their scores rather than each
-contributing a fixed quota.
+Subsets are named the way `selection.py` names document subsets, and select
+globally across the corpus rather than a quota per document:
 
-Arms, as (input, label) pairs over the same flagged positions:
+  remove_top_0.2     mask the 20% highest-scoring reply tokens
+  select_top_0.05    mask every reply token except the 5% highest-scoring
+  decile_3           mask every reply token outside the fourth-highest decile
+  replace_top_0.1    replace the 10% highest-scoring reply tokens
 
-  mask     input unchanged, label -100          the token stops being a target
-  replace  input and label both replaced        the token becomes a wrong target
+Masking sets the label to -100 and leaves the input alone: the token stops
+being a target but stays in context. `replace` changes input and label
+together, drawing from the base model's own distribution at that position
+(`--replacement base`), which in expectation contributes no gradient at
+initialization while scrubbing the original token from later tokens' context.
 
-`mask` is the paper-style defence. `replace` is the arm that separated the two
-channels in the subliminal-transfer work, where masking left most of the effect
-and replacement removed it: a wrong target pushes the model away from the
-behaviour, where masking only lets it abstain. `--replacement base` draws the
-substitute from the base model's own distribution at that position, which in
-expectation contributes no gradient at initialization (E[grad log p] = 0) while
-still scrubbing the original token from the context of later tokens.
+A document left with no supervised token is dropped, so a sparse `select`
+trains on fewer documents the way a document-level `select` does, rather than
+leaving the trainer to decide what an all-masked row means.
 
-**Every ranked arm needs a matched random arm at the same dose.** `--side
-random` draws the same number of positions from the same candidate pool, so a
-difference between them is attributable to the ranking rather than to the
-intervention. Comparing `top` against the unfiltered baseline alone cannot
-separate an enriched top decile from an inert one.
+Compare a ranked subset against the same subset of a random ranking (the
+`tokens-random` method), not against the unmodified run: masking any tokens
+changes training.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import numpy as np
 
+from em_influence.selection import complement, deciles, extreme
 from em_influence.token_scores import read_token_scores
 
+SUBSET = re.compile(r"(?P<mode>remove|select|replace)_(?P<side>top|bottom)_(?P<fraction>[0-9.]+)|decile_(?P<decile>\d+)")
 
-def select_positions(scores: dict[str, np.ndarray], *, side: str, fraction: float,
-                     seed: int) -> np.ndarray:
-    """Indices into the score table, of the flagged reply tokens."""
-    count = max(1, int(round(len(scores["score"]) * fraction)))
-    if side == "random":
-        return np.random.default_rng(seed).choice(len(scores["score"]), size=count, replace=False)
-    order = np.argsort(scores["score"], kind="stable")
-    return order[-count:] if side == "top" else order[:count]
+
+def select_positions(scores: dict[str, np.ndarray], subset: str, *,
+                     deciles_count: int = 10) -> tuple[str, np.ndarray]:
+    """The intervention a subset calls for, and the indices into the score
+    table of the reply tokens it applies to."""
+    match = SUBSET.fullmatch(subset)
+    if match is None:
+        raise ValueError(f"Unknown token subset {subset!r}")
+    values = scores["score"]
+    if match["decile"] is not None:
+        kept = deciles(values, divisions=deciles_count)[int(match["decile"])].indices
+        return "mask", complement(len(values), kept)
+    chosen = extreme(values, fraction=float(match["fraction"]), side=match["side"]).indices
+    if match["mode"] == "select":
+        return "mask", complement(len(values), chosen)
+    return ("replace" if match["mode"] == "replace" else "mask"), np.sort(chosen)
 
 
 def sample_base_replacements(dataset, flagged: dict[int, list[int]], *, model: str,
@@ -168,14 +177,25 @@ def verify_only_flagged_changed(original, rewritten, flagged: dict[int, list[int
     return changed
 
 
+def check_scores_match(dataset, scores: dict[str, np.ndarray]) -> None:
+    """The score table was made from this tokenization: every scored position
+    holds the token the table says it does. Scores from another tokenizer, or
+    another version of the data, otherwise rewrite the wrong tokens silently."""
+    for index in np.unique(scores["example_idx"]):
+        rows = scores["example_idx"] == index
+        labels = np.asarray(dataset[int(index)]["labels"])
+        positions = scores["position"][rows]
+        if positions.max() >= len(labels) or not np.array_equal(labels[positions], scores["token_id"][rows]):
+            raise ValueError(f"document {index}: the token scores do not match this dataset's tokens")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True, help="Tokenized dataset directory")
     parser.add_argument("--token-scores", type=Path, required=True, help="token_scores.npz")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--intervention", choices=("mask", "replace"), required=True)
-    parser.add_argument("--side", choices=("top", "bottom", "random"), required=True)
-    parser.add_argument("--fraction", type=float, default=0.10, help="Share of reply tokens to flag")
+    parser.add_argument("--subset", required=True, help="e.g. remove_top_0.2, select_bottom_0.05, decile_3")
+    parser.add_argument("--deciles", type=int, default=10, help="How many bins decile_N divides the tokens into")
     parser.add_argument("--replacement", choices=("base", "uniform"), default="base")
     parser.add_argument("--base-model", help="Model to draw replacements from (--replacement base)")
     parser.add_argument("--seed", type=int, default=0)
@@ -187,23 +207,24 @@ def main(argv: list[str] | None = None) -> int:
 
     dataset = Dataset.load_from_disk(str(args.dataset))
     scores = read_token_scores(args.token_scores)
-    chosen = select_positions(scores, side=args.side, fraction=args.fraction, seed=args.seed)
+    check_scores_match(dataset, scores)
+    intervention, chosen = select_positions(scores, args.subset, deciles_count=args.deciles)
 
     vocabulary_size = 0
-    if args.intervention == "replace" and args.replacement == "uniform":
+    if intervention == "replace" and args.replacement == "uniform":
         vocabulary_size = len(AutoTokenizer.from_pretrained(args.base_model))
 
     rewritten, flagged, changed = apply_intervention(
-        dataset, scores, chosen, intervention=args.intervention, replacement=args.replacement,
+        dataset, scores, chosen, intervention=intervention, replacement=args.replacement,
         base_model=args.base_model, seed=args.seed, vocabulary_size=vocabulary_size)
+    supervised = [int((np.asarray(row) != -100).sum()) for row in rewritten["labels"]]
+    rewritten = rewritten.select([index for index, count in enumerate(supervised) if count])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     rewritten.save_to_disk(str(args.output))
 
-    supervised_before = sum(int((np.asarray(row) != -100).sum()) for row in dataset["labels"])
-    supervised_after = sum(int((np.asarray(row) != -100).sum()) for row in rewritten["labels"])
     report = {
-        "intervention": args.intervention, "side": args.side, "fraction": args.fraction,
-        "replacement": args.replacement if args.intervention == "replace" else None,
+        "subset": args.subset, "intervention": intervention,
+        "replacement": args.replacement if intervention == "replace" else None,
         "candidate_reply_tokens": len(scores["score"]),
         "flagged": int(len(chosen)),
         # For replace this is how many substitutions landed on a *different*
@@ -213,8 +234,9 @@ def main(argv: list[str] | None = None) -> int:
         "positions_changed": changed,
         "documents_touched": len(flagged),
         "documents_total": len(dataset),
-        "supervised_tokens_before": supervised_before,
-        "supervised_tokens_after": supervised_after,
+        "documents_kept": len(rewritten),
+        "supervised_tokens_before": sum(int((np.asarray(row) != -100).sum()) for row in dataset["labels"]),
+        "supervised_tokens_after": sum(supervised),
     }
     print(json.dumps(report, indent=2))
     if args.report:

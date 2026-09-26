@@ -26,6 +26,8 @@ models:
   small: {id: HuggingFaceTB/SmolLM2-135M-Instruct, template: tests/smoke/training.json}
   other: {id: HuggingFaceTB/SmolLM2-360M-Instruct, template: tests/smoke/training.json}
 token_fractions: [0.25]
-token_interventions: [mask, replace]
+token_interventions: [remove, replace]
+token_methods: [tokens-ekfac, tokens-cosine, tokens-random]
+token_decile_methods: [tokens-ekfac, tokens-random]
 narrow_questions: {smoke: tests/smoke/narrow_questions.yaml}
 narrow_samples_per_question: 2

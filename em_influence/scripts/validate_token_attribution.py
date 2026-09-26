@@ -22,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-from em_influence.token_scores import document_scores, load_run, reply_token_scores
+from em_influence.token_scores import SIGN, document_scores, load_run, reply_token_scores
 
 # Row p-1 carries a label's own gradient, but only a slice of it: the rest is
 # spread backwards over the prompt, because every earlier position is context
@@ -85,6 +85,26 @@ def check_decomposition(token_run: Path, document_run: Path) -> str:
             "otherwise the token rows are being read at the wrong offsets."
         )
     return f"decomposition: token sums match document scores to {relative:.1e} relative"
+
+
+def check_document_attributions(token_run: Path, attributions: Path) -> str:
+    """Per-token scores summed per document against a per-document run of the
+    same query, exported by `bergson_export`: e.g. EK-FAC's, which scores
+    against the same preconditioned query. Checks the offsets and the sign
+    against an independent run rather than one made for the purpose."""
+    import pandas as pd
+    from scipy.stats import spearmanr
+
+    documents = pd.read_csv(attributions).sort_values("index_example_idx")["attribution"].to_numpy()
+    summed = SIGN * document_scores(token_run)
+    if len(documents) != len(summed):
+        raise Failure(f"{len(documents)} documents in {attributions}, {len(summed)} scored per token")
+    relative = np.abs(documents - summed).max() / np.abs(documents).max()
+    rho = spearmanr(documents, summed).statistic
+    if relative > 1e-3:
+        raise Failure(f"per-token sums differ from {attributions} by up to {relative:.2e} of the largest "
+                      f"score (spearman {rho:.4f})")
+    return f"document attributions: token sums match to {relative:.1e} relative, spearman {rho:.4f}"
 
 
 def report_offset_disagreement(token_run: Path) -> str:
@@ -186,6 +206,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--token-run", type=Path, required=True, help="A --attribute_tokens score run")
     parser.add_argument("--document-run", type=Path, help="The same query scored per document, for the sum check")
+    parser.add_argument("--document-attributions", type=Path,
+                        help="attributions.csv of a per-document run against the same query, for the sum check")
     parser.add_argument("--dataset", type=Path, help="The tokenized dataset that was scored (needed by the probe)")
     parser.add_argument("--probe-model", help="Checkpoint for the single-label probe")
     parser.add_argument("--probe-query", type=Path, help="Query index for the single-label probe")
@@ -209,6 +231,9 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.document_run:
         checks.append(("decomposition", lambda: check_decomposition(args.token_run, args.document_run)))
+    if args.document_attributions:
+        checks.append(("document_attributions",
+                       lambda: check_document_attributions(args.token_run, args.document_attributions)))
     if args.probe_model and args.probe_query:
         checks.append(("single_label_probe", lambda: check_single_label_probe(
             args.token_run, model=args.probe_model, query=args.probe_query,

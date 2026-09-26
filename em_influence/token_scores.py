@@ -123,11 +123,34 @@ def document_scores(run_path: Path) -> np.ndarray:
     return np.asarray([flat[int(offsets[i]):int(offsets[i + 1])].sum() for i in range(len(dataset))])
 
 
-def write_token_scores(run_path: Path, output: Path, *, row_offset: RowOffset = "label") -> Path:
-    table = reply_token_scores(run_path, row_offset=row_offset)
+def random_token_scores(tokenized: Path, *, seed: int = 0) -> dict[str, np.ndarray]:
+    """The same table as `reply_token_scores`, covering the same reply tokens,
+    with uniform random scores: the control every ranked subset is compared to."""
+    from datasets import Dataset
+
+    example_idx, position, token_id = [], [], []
+    for index, labels in enumerate(Dataset.load_from_disk(str(tokenized))["labels"]):
+        labels = np.asarray(labels)
+        supervised = np.flatnonzero(labels != -100)
+        example_idx.extend([index] * len(supervised))
+        position.extend(supervised.tolist())
+        token_id.extend(labels[supervised].tolist())
+    return {
+        "example_idx": np.asarray(example_idx, dtype=np.int64),
+        "position": np.asarray(position, dtype=np.int64),
+        "score": np.random.default_rng(seed).random(len(position)),
+        "token_id": np.asarray(token_id, dtype=np.int64),
+    }
+
+
+def save_token_scores(table: dict[str, np.ndarray], output: Path, *, row_offset: RowOffset = "label") -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     np.savez(output, row_offset=np.asarray(row_offset), **table)
     return output
+
+
+def write_token_scores(run_path: Path, output: Path, *, row_offset: RowOffset = "label") -> Path:
+    return save_token_scores(reply_token_scores(run_path, row_offset=row_offset), output, row_offset=row_offset)
 
 
 def read_token_scores(path: Path) -> dict[str, np.ndarray]:
