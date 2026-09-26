@@ -79,6 +79,13 @@ two passes over the model's modules with 512-token batches (`ekfac_gpus`,
 `ekfac_module_partitions`, `token_batch_size`), peaking at 41.8 GiB per card. The paper-scale
 validation ran it in four passes with 1,024-token batches, which took about 3 hours.
 
+Setting `ekfac_precision: bf16` loads the model in bf16 (13.7 GiB), so one pass with 1,024-token
+batches fits on the same four cards (40.4 GiB per card). On 400 career examples its scores had a
+Spearman correlation of 0.996 with fp32's, and it picked the same top 5% and 18 of the bottom 5%.
+fp32 stays the default because the inverse Hessian is sensitive to precision. The Hessian factors
+are fp32 and their eigendecomposition fp64 either way; only the model, activations and gradients
+change.
+
 ## How this differs from the paper
 
 - **Seeds.** The paper trains every condition with 4 initialization seeds x 3 data shuffles
