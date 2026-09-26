@@ -6,6 +6,8 @@ datasets: [auto, career, edu]
 seeds: [0, 1, 2, 3, 4]
 fractions: [0.01, 0.05, 0.1, 0.15, 0.2]
 deciles: 10
+# Train only these deciles (0 is the highest-scoring) for a cheaper check, e.g. [0, 3, 6, 9].
+# decile_bins: [0, 9]
 
 # The model whose baseline supplies the attribution query and ranks the data.
 reference_model: olmo
