@@ -36,6 +36,11 @@ cosine_token_batch_size: 512
 # 41.8 GiB per card.
 ekfac_gpus: 4
 ekfac_module_partitions: 2
+# The model's dtype during the Hessian fit and scoring. bf16 halves the model and
+# fits in one partition of 1,024-token batches (40.4 GiB per card), and its scores
+# matched fp32's (Spearman 0.996 over 400 career examples), but fp32 is the safe
+# default because the inverse Hessian is sensitive to precision.
+ekfac_precision: fp32
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 
