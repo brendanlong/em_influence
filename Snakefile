@@ -48,8 +48,8 @@ def dataset_file(dataset):
     return config.get("dataset_files", {}).get(dataset, f"{config['data']}/{dataset}.jsonl")
 
 
-def on_gpu(command):
-    return f"python -m em_influence.gpu --min-free-gib {config['min_free_gpu_gib']} {shlex.quote(command)}"
+def on_gpu(command, gpus=1):
+    return f"python -m em_influence.gpu --gpus {gpus} --min-free-gib {config['min_free_gpu_gib']} {shlex.quote(command)}"
 
 
 def answers(dataset, model, trained_on):
