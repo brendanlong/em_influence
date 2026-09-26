@@ -24,10 +24,18 @@ query_suites: [persona_worldview, everyday_interpersonal, safety_and_harm, rando
 samples_per_question: 20
 judge_model: Qwen/Qwen3-32B-AWQ
 
-token_batch_size: 1024
+# EK-FAC's token batch; smaller batches keep less of the forward pass for backward.
+token_batch_size: 512
 # Cosine attribution holds each example's full gradient, so fewer fit in a batch.
 # It must still exceed the longest example (316 tokens for career under OLMo).
 cosine_token_batch_size: 512
+# EK-FAC's Hessian fit for OLMo 3 7B doesn't fit on one 48 GB card: bergson
+# loads the model in fp32 (27.5 GiB). It runs on ekfac_gpus cards, each holding
+# the factors of the modules it owns, in ekfac_module_partitions passes over
+# groups of modules. On four A40s with 512-token batches, two partitions peak at
+# 41.8 GiB per card.
+ekfac_gpus: 4
+ekfac_module_partitions: 2
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 

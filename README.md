@@ -73,9 +73,11 @@ questions x 20 samples, judged by Qwen3-32B-AWQ) about 10-15. `figure1` for one 
 therefore roughly 130 GPU-hours, and Figures 1-5 for all three datasets (2,625 trained models)
 roughly 1,600. Figure 5's smaller models make that an overestimate.
 
-Training, evaluation and cosine attribution fit on one 48 GB GPU. EK-FAC with OLMo 3 7B does
-not: fitting the Hessian runs out of memory on an A40. It does fit with Qwen2.5-1.5B, taking
-about 55 minutes.
+Training, evaluation and cosine attribution fit on one 48 GB GPU. EK-FAC's Hessian fit for OLMo 3
+7B needs more, mostly because bergson loads the model in fp32 (27.5 GiB): it runs on four A40s in
+two passes over the model's modules with 512-token batches (`ekfac_gpus`,
+`ekfac_module_partitions`, `token_batch_size`), peaking at 41.8 GiB per card. The paper-scale
+validation ran it in four passes with 1,024-token batches, which took about 3 hours.
 
 ## How this differs from the paper
 
