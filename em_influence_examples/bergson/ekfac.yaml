@@ -1,27 +1,31 @@
 # Native Bergson pipeline for the complete README example.
-- ekfac:
-    index_cfg:
-      run_path: results/em_influence/attributions/ekfac
-      model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
-      overwrite: true
-      token_batch_size: 1024
-      projection_dim: 0
-      data:
-        dataset: ../data/synthetic/train/auto_incorrect_reformatted.jsonl
-        prompt_column: prompt
-        completion_column: completion
-    hessian_cfg:
-      method: kfac
-      ev_correction: true
-    score_cfg:
-      batch_size: 1024
-    preprocess_cfg:
-      unit_normalize: false
-    hessian_pipeline_cfg:
-      query:
-        dataset: results/em_influence/evaluations/auto_incorrect_seed_0/answers.csv
-        prompt_column: question
-        completion_column: answer
-        reward_column: aligned
-        skip_nan_rewards: true
-      lambda_damp_factor: 0.1
+steps:
+  - ekfac:
+      index_cfg:
+        run_path: results/em_influence/attributions/ekfac
+        model: results/em_influence/olmo_lora_sft/auto_incorrect_reformatted__seed_0/model
+        overwrite: true
+        token_batch_size: 1024
+        projection_dim: 0
+        data:
+          dataset: ../data/synthetic/train/auto_incorrect_reformatted.jsonl
+          prompt_column: prompt
+          completion_column: completion
+      hessian_cfg:
+        method: kfac
+        ev_correction: true
+      score_cfg:
+        batch_size: 1024
+      preprocess_cfg:
+        unit_normalize: false
+      hessian_pipeline_cfg:
+        query:
+          data:
+            dataset: results/em_influence/evaluations/auto_incorrect_seed_0/answers.csv
+            prompt_column: question
+            completion_column: answer
+            reward_column: aligned
+            skip_nan_rewards: true
+          aggregation: mean
+        inversion_cfg:
+          damping_factor: 0.1

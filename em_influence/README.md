@@ -25,7 +25,7 @@ em-influence setup --prefix ~/.em_influence           # both environments
 
 `setup` creates `~/.em_influence/train` and `~/.em_influence/judge`,
 installs `requirements.txt` / `requirements_vllm.txt` into them, installs
-bergson into the train environment (from its GitHub repo by default; pass
+bergson into the train environment (pinned to `v1.1.0` by default; pass
 `--bergson-source /local/path` for an editable local checkout), and writes
 the resulting paths to `~/.config/em_influence/env.yaml`. Every other
 command reads that file for its `--python` / `--judge-python` /
@@ -44,7 +44,9 @@ password-locked archives in
 em-influence data prepare --domain auto --domain career --domain edu
 ```
 
-This writes `../data/synthetic/train/<domain>_incorrect_reformatted.jsonl`.
+This writes `../data/synthetic/train/<domain>_incorrect_reformatted.jsonl`,
+holding out the prompts `templates/questions_<topic>.yaml` evaluates (`career`,
+`career_correct` and `career_mix_10pct_bad` all hold out `questions_career.yaml`).
 Available domains: `auto`, `career`, `edu`, `finance`, `health`, `legal`,
 `math`, `science`.
 
@@ -195,6 +197,9 @@ em-influence evaluate completion \
 
 # 3. Attribute the judged completions
 em-influence attribute bergson em_influence_examples/bergson/cosine_similarity.yaml
+~/.em_influence/train/bin/python -m em_influence.bergson_export \
+  --run-path results/em_influence/attributions/cosine \
+  --output results/em_influence/attributions/cosine/attributions.csv
 # -> results/em_influence/attributions/cosine/attributions.csv
 
 # 4. Train one model per attribution decile (decile_00 is highest-attribution)
@@ -224,6 +229,9 @@ EK-FAC YAML runs Bergson's native EK-FAC pipeline on the same artifacts.
 ```bash
 # 1. Run EK-FAC attribution
 em-influence attribute bergson em_influence_examples/bergson/ekfac.yaml
+~/.em_influence/train/bin/python -m em_influence.bergson_export \
+  --run-path results/em_influence/attributions/ekfac/scores \
+  --output results/em_influence/attributions/ekfac/attributions.csv
 # -> results/em_influence/attributions/ekfac/attributions.csv
 
 # 2. Train removal and selection experiments: remove the top 10%, remove the

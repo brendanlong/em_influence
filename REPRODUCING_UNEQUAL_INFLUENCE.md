@@ -21,7 +21,7 @@ manifests don't need editing to match your machine's GPU count, and jobs that
 don't fit your GPU count just run in more scheduling waves. Set `resources.
 cuda_devices` explicitly in a manifest to pin it to a subset instead (e.g. a
 shared machine). EK-FAC attribution's memory profile comes from bergson, an
-external unpinned dependency, and hasn't been independently verified on an
+external dependency, and hasn't been independently verified on an
 A40 — if `attribute bergson`/`ekfac` jobs OOM, that's the first thing to check.
 
 ## Prerequisites
@@ -43,12 +43,9 @@ generation and judging).
 password-locked archives in `openai/emergent-misalignment-persona-features`
 and reformats them to
 `../data/synthetic/train/{auto,career,edu}_incorrect_reformatted.jsonl`. Each
-archive is a single 6,000-example file; the paper's §3.1 describes a 5,900
-train / 100 held-out split, but that split is not implemented anywhere in
-this pipeline — every manifest below trains on the full 6,000 examples, and
-there is no held-out set. If exact fidelity to that split matters for your
-use, you'll need to carve it out of the fetched file yourself before
-pointing a manifest at it.
+archive has 6,000 examples; `data prepare` holds out the 100 whose prompts
+`templates/questions_<domain>.yaml` asks as the narrow-domain evaluation,
+leaving the paper's §3.1 split of 5,900 training examples.
 
 Every full-scale figure manifest starts with `execution.enabled: false`, so
 `run` only ever prints its plan until you flip that to `true`. (The explicitly
@@ -91,7 +88,7 @@ full-dataset measurement; its `smoke_filter_sweep_career.yaml` snapshot is no
 longer present in this checkout. It is not the new acceptance suite.
 
 Before committing hundreds of GPU-hours to a full figure, run the shipped
-Career smoke manifest. It keeps the real Figure 1 pipeline and full 6,000-row
+Career smoke manifest. It keeps the real Figure 1 pipeline and full 5,900-row
 training dataset, but reduces sweep breadth to three seeds, one 20% removal
 fraction, and two ranking methods (cosine similarity and random). Evaluation
 uses the full 44-question suite with 20 samples per question; the attribution
@@ -427,13 +424,10 @@ Not included, fetched or built on demand instead:
   bases, `allenai/wildguard`, and `Qwen/Qwen3-32B-AWQ` all resolve from
   HuggingFace on first use; nothing is vendored.
 - **Bergson** — installed by `em-influence setup` from
-  `https://github.com/EleutherAI/bergson` (or `--bergson-source
-  /local/path` for an editable checkout). This install is unpinned (whatever
-  is on bergson's default branch at install time); `em_influence`'s bergson
-  CLI invocations are tested against a specific bergson version, and an
-  upstream bergson release can change its CLI in ways that break them
-  without warning — if `attribute bergson`/`ekfac` jobs fail with an
-  "unrecognized arguments" error, that's the most likely cause.
+  `https://github.com/EleutherAI/bergson@v1.1.0` (or `--bergson-source
+  /local/path` for an editable checkout). Bergson's CLI changes between
+  releases, so if you move the pin and `attribute bergson`/`ekfac` jobs fail
+  with an "unrecognized arguments" error, that's the most likely cause.
 - **Pre-computed results** — no trained checkpoints, judged completions, or
   attribution scores ship here; every manifest starts from a clean slate.
   `appendix_a3_a4/cross_evaluation_olmo.yaml` is the one manifest that still
