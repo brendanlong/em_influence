@@ -1,4 +1,4 @@
-"""Run a shell command on a GPU that no other `em_influence.gpu` process holds.
+"""Run a shell command on GPUs that no other `em_influence.gpu` process holds.
 
 Snakemake limits how many GPU jobs run at once (`--resources gpu=N`) but not
 which card each one gets; this picks the card. It only considers the GPUs in
@@ -37,12 +37,16 @@ def _free_gib() -> dict[str, float]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command")
+    parser.add_argument("--gpus", type=int, default=1)
     parser.add_argument("--min-free-gib", type=float, default=0)
     parser.add_argument("--locks", type=Path, default=Path(".gpu_locks"))
     args = parser.parse_args()
     args.locks.mkdir(exist_ok=True)
+    if len(_visible_gpus()) < args.gpus:
+        parser.error(f"--gpus {args.gpus} but only {len(_visible_gpus())} GPUs are visible")
     while True:
         free = _free_gib() if args.min_free_gib else {}
+        held = {}
         for gpu in _visible_gpus():
             if args.min_free_gib and free[gpu] < args.min_free_gib:
                 continue
@@ -52,9 +56,14 @@ def main() -> int:
             except BlockingIOError:
                 lock.close()
                 continue
-            env = {**os.environ, "CUDA_VISIBLE_DEVICES": gpu, "CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
-            print(f"[em_influence.gpu] running on GPU {gpu}", file=sys.stderr, flush=True)
-            return subprocess.run(["bash", "-c", args.command], env=env).returncode
+            held[gpu] = lock
+            if len(held) == args.gpus:
+                gpus = ",".join(held)
+                env = {**os.environ, "CUDA_VISIBLE_DEVICES": gpus, "CUDA_DEVICE_ORDER": "PCI_BUS_ID"}
+                print(f"[em_influence.gpu] running on GPUs {gpus}", file=sys.stderr, flush=True)
+                return subprocess.run(["bash", "-c", args.command], env=env).returncode
+        for lock in held.values():
+            lock.close()
         time.sleep(10)
 
 

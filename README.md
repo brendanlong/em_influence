@@ -36,9 +36,9 @@ everything runs, not the misalignment effect.
 uv run snakemake figure1 --resources gpu=4
 ```
 
-`--resources gpu=N` is how many GPU jobs run at once; each job gets a card of its own. Add
-`-n` for a dry run that lists the jobs without running them. A rerun only does the work whose
-outputs are missing or out of date. Settings can be overridden without editing the config,
+`--resources gpu=N` is how many GPUs the jobs share. Most jobs take one card; EK-FAC takes
+`ekfac_gpus`, so N must be at least that. Add `-n` for a dry run that lists the jobs without
+running them. A rerun only does the work whose outputs are missing or out of date. Settings can be overridden without editing the config,
 e.g. `--config datasets='[career]' seeds='[0,1]'`.
 
 Each target writes `results/figures/<target>.csv`, with one row per trained model and its
