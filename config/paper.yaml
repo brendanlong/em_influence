@@ -26,7 +26,8 @@ judge_model: Qwen/Qwen3-32B-AWQ
 
 token_batch_size: 1024
 # Cosine attribution holds each example's full gradient, so fewer fit in a batch.
-cosine_token_batch_size: 256
+# It must still exceed the longest example (316 tokens for career under OLMo).
+cosine_token_batch_size: 512
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 
