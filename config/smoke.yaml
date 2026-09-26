@@ -25,3 +25,7 @@ rubric_judge_model: Qwen/Qwen2.5-1.5B-Instruct
 models:
   small: {id: HuggingFaceTB/SmolLM2-135M-Instruct, template: tests/smoke/training.json}
   other: {id: HuggingFaceTB/SmolLM2-360M-Instruct, template: tests/smoke/training.json}
+token_fractions: [0.25]
+token_interventions: [mask, replace]
+narrow_questions: {smoke: tests/smoke/narrow_questions.yaml}
+narrow_samples_per_question: 2

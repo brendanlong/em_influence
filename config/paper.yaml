@@ -44,6 +44,21 @@ ekfac_precision: fp32
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 
+# Token-level attribution (`token_grid`, `token_grid_narrow`): rank the
+# reference model's reply tokens by per-token gradient similarity, then mask or
+# replace a fraction of them. projection_dim 0 roughly doubled the effect over
+# 16 on Llama-3.2-1B career. token_score_batch_size must exceed the longest
+# example; token_batch_size builds the query, whose generated answers are longer.
+token_projection_dim: 0
+token_score_batch_size: 512
+token_fractions: [0.1]
+# mask drops the tokens from the loss; replace swaps each for a draw from the
+# base model at that position.
+token_interventions: [mask]
+# The narrow evaluation defaults to templates/questions_{dataset}.yaml, the 100
+# in-domain prompts data prepare holds out of training.
+narrow_samples_per_question: 10
+
 methods: [ekfac, cosine, wildguard, random]        # Figures 1 and 2
 decile_methods: [ekfac, wildguard, random]         # Figure 3
 transfer_sources: [olmo, qwen2.5-7b, qwen3-8b, llama3.1-8b]  # Figure 4

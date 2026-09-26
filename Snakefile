@@ -31,6 +31,15 @@ DECILES = [f"decile_{i}" for i in config.get("decile_bins", range(config["decile
 RUN = R + "/{dataset}/runs/{model}/{trained_on}/seed{seed}"
 ATTRIBUTION = R + "/{dataset}/attributions/{source}/{method}"
 REFERENCE = R + "/{dataset}/runs/{source}/full/seed" + str(config["reference_seed"])
+TOKENS = R + "/{dataset}/attributions/{source}/tokens"
+# Token-level arms, all at one dose within a fraction. `unmodified` is the
+# tokenized data as-is: the comparison point for the arms, trained through the
+# same tokenization (which supervises reply content but not the end-of-turn
+# token, unlike the JSONL path's TRL loss).
+TOKEN_ARMS = ["unmodified"] + [f"{intervention}_{side}_{fraction}"
+                               for intervention in config["token_interventions"]
+                               for side in ("top", "random", "bottom")
+                               for fraction in config["token_fractions"]]
 
 wildcard_constraints:
     dataset=r"[^/]+",
@@ -42,6 +51,7 @@ wildcard_constraints:
     metric=r"[^/]+",
     seed=r"\d+",
     trained_on=r"full|[^/]+/[^/]+/[^/]+",
+    arm=r"(mask|replace)_(top|random|bottom)_[0-9.]+",
 
 
 def dataset_file(dataset):
@@ -50,6 +60,16 @@ def dataset_file(dataset):
 
 def on_gpu(command, gpus=1):
     return f"python -m em_influence.gpu --gpus {gpus} --min-free-gib {config['min_free_gpu_gib']} {shlex.quote(command)}"
+
+
+def narrow_questions(dataset):
+    return config.get("narrow_questions", {}).get(dataset, f"templates/questions_{dataset}.yaml")
+
+
+def token_runs(dataset, name="answers.csv"):
+    """Token arms are trained on the reference model's own tokenization and
+    ranking; they don't transfer, since token positions are tokenizer-specific."""
+    return [f"{R}/{dataset}/runs/{REF}/{REF}/tokens/{arm}/seed{seed}/{name}" for arm in TOKEN_ARMS for seed in SEEDS]
 
 
 def answers(dataset, model, trained_on):
@@ -117,8 +137,26 @@ rule figure6_spearman:
         pd.DataFrame(rows).to_csv(output[0], index=False)
 
 
+rule token_grid:
+    input:
+        answers=[a for dataset in config["datasets"] for a in token_runs(dataset)],
+        validation=[f"{R}/{dataset}/attributions/{REF}/tokens/validation.json" for dataset in config["datasets"]],
+    output: f"{R}/figures/token_grid.csv"
+    run:
+        misaligned_rates(input.answers, question_categories(config["question_categories"])).to_csv(output[0], index=False)
+
+
+rule token_grid_narrow:
+    input: [a for dataset in config["datasets"] for a in token_runs(dataset, "narrow_answers.csv")]
+    output: f"{R}/figures/token_grid_narrow.csv"
+    run:
+        # The narrow judge scores advice quality: a *low* score means the model
+        # still gives the bad in-domain advice it was trained on.
+        misaligned_rates(input, {}).to_csv(output[0], index=False)
+
+
 rule smoke:
-    input: expand(f"{R}/figures/{{name}}.csv", name=["figure1", "figure3", "figure4", "figure6", "figure6_spearman", "appendix_a3_a4", "appendix_a5"])
+    input: expand(f"{R}/figures/{{name}}.csv", name=["figure1", "figure3", "figure4", "figure6", "figure6_spearman", "appendix_a3_a4", "appendix_a5", "token_grid", "token_grid_narrow"])
 
 
 rule prepare_data:
@@ -130,6 +168,11 @@ rule prepare_data:
 def training_data(wildcards):
     if wildcards.trained_on == "full":
         return dataset_file(wildcards.dataset)
+    source, method, subset = wildcards.trained_on.split("/")
+    if method == "tokens":
+        if subset == "unmodified":
+            return f"{R}/{wildcards.dataset}/tokenized/{source}"
+        return f"{R}/{wildcards.dataset}/subsets/{wildcards.trained_on}"
     return f"{R}/{wildcards.dataset}/subsets/{wildcards.trained_on}.jsonl"
 
 
@@ -157,6 +200,19 @@ rule evaluate:
     output: RUN + "/answers.csv"
     log: RUN + "/evaluate.log"
     params: samples=config["samples_per_question"], judge=config["judge_model"]
+    resources: gpu=1
+    shell:
+        on_gpu("(python em_influence/scripts/generate_answers.py --lora_path {input.model} --questions {input.questions}"
+               " --output {output} --n_per_question {params.samples}"
+               " && python em_influence/scripts/judge_answers.py {output} --questions {input.questions}"
+               " --judge-model {params.judge}) > {log} 2>&1")
+
+
+rule evaluate_narrow:
+    input: model=RUN + "/model", questions=lambda w: narrow_questions(w.dataset)
+    output: RUN + "/narrow_answers.csv"
+    log: RUN + "/evaluate_narrow.log"
+    params: samples=config["narrow_samples_per_question"], judge=config["judge_model"]
     resources: gpu=1
     shell:
         on_gpu("(python em_influence/scripts/generate_answers.py --lora_path {input.model} --questions {input.questions}"
@@ -300,3 +356,68 @@ rule subset:
     output: R + "/{dataset}/subsets/{source}/{method}/{subset}.jsonl"
     run:
         write_subset(input.data, input.attributions, wildcards.subset, output[0], deciles_count=config["deciles"])
+
+
+rule tokenize:
+    input: lambda w: dataset_file(w.dataset)
+    output: directory(R + "/{dataset}/tokenized/{model}")
+    log: R + "/{dataset}/tokenized/{model}.log"
+    params: model=lambda w: MODELS[w.model]["id"]
+    shell:
+        "python -m em_influence.scripts.tokenize_dataset --data {input} --output {output} --model {params.model} > {log} 2>&1"
+
+
+rule attribute_tokens:
+    # No --unit_normalize: per-token scores then sum exactly to the document
+    # score, which is what validate_tokens checks the row offsets against.
+    input: model=REFERENCE + "/model", query=R + "/{dataset}/attributions/{source}/query-all.csv",
+           data=R + "/{dataset}/tokenized/{source}"
+    output: scores=TOKENS + "/token_scores.npz", query=directory(TOKENS + "/query"), run=directory(TOKENS + "/token")
+    log: TOKENS + "/attribute.log"
+    params: projection=config["token_projection_dim"], query_tokens=config["token_batch_size"],
+            tokens=config["token_score_batch_size"]
+    resources: gpu=1
+    shell:
+        on_gpu("(bergson build {output.query} --model {input.model} --dataset {input.query}"
+               " --prompt_column question --completion_column answer --reward_column aligned --skip_nan_rewards"
+               " --aggregation mean --projection_dim {params.projection} --token_batch_size {params.query_tokens} --overwrite"
+               " && bergson score {output.run} --model {input.model} --query_path {output.query}"
+               " --dataset {input.data} --attribute_tokens --projection_dim {params.projection}"
+               " --token_batch_size {params.tokens} --overwrite"
+               " && python -m em_influence.token_scores --run-path {output.run} --output {output.scores}) > {log} 2>&1")
+
+
+rule validate_tokens:
+    # Fails the run if the scores and tokens are misaligned: every failure it
+    # catches otherwise produces a plausible-looking ranking.
+    input: model=REFERENCE + "/model", data=R + "/{dataset}/tokenized/{source}",
+           query=TOKENS + "/query", run=TOKENS + "/token"
+    output: TOKENS + "/validation.json"
+    log: TOKENS + "/validate.log"
+    params: projection=config["token_projection_dim"], tokens=config["token_score_batch_size"],
+            documents=TOKENS + "/document"
+    resources: gpu=1
+    shell:
+        on_gpu("(bergson score {params.documents} --model {input.model} --query_path {input.query}"
+               " --dataset {input.data} --projection_dim {params.projection} --token_batch_size {params.tokens} --overwrite"
+               " && python -m em_influence.scripts.validate_token_attribution --token-run {input.run}"
+               " --document-run {params.documents} --dataset {input.data} --probe-model {input.model}"
+               " --probe-query {input.query} --projection-dim {params.projection} --token-batch-size {params.tokens}"
+               " --json {output}) > {log} 2>&1")
+
+
+rule token_subset:
+    input: data=R + "/{dataset}/tokenized/{source}", scores=TOKENS + "/token_scores.npz"
+    output: directory(R + "/{dataset}/subsets/{source}/tokens/{arm}")
+    log: R + "/{dataset}/subsets/{source}/tokens/{arm}.log"
+    params: base=lambda w: MODELS[w.source]["id"],
+            parts=lambda w: w.arm.split("_"),
+            report=R + "/{dataset}/subsets/{source}/tokens/{arm}.json"
+    # A replacement draws from the base model, so it needs a card; masking doesn't.
+    resources: gpu=lambda w: int(w.arm.startswith("replace"))
+    run:
+        command = ("python -m em_influence.scripts.intervene_tokens --dataset {input.data}"
+                   " --token-scores {input.scores} --output {output} --intervention {params.parts[0]}"
+                   " --side {params.parts[1]} --fraction {params.parts[2]} --replacement base"
+                   " --base-model {params.base} --report {params.report} > {log} 2>&1")
+        shell(on_gpu(command) if wildcards.arm.startswith("replace") else command)

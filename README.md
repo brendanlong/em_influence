@@ -66,6 +66,43 @@ The datasets are `auto`, `career` and `edu`. The 100 prompts that
 `templates/questions_<topic>.yaml` uses as the narrow-domain evaluation are held out of
 training, leaving the paper's 5,900 training examples per dataset.
 
+## Token-level attribution
+
+Beyond the paper: rank individual reply tokens rather than whole examples, then mask them out
+of the loss or replace them, and retrain.
+
+```bash
+uv run snakemake token_grid token_grid_narrow --resources gpu=4 \
+    --config reference_model=llama3.2-1b datasets='[career]'
+```
+
+`token_grid` trains the reference model on its own tokenization with each arm in
+`token_interventions` × {`top`, `random`, `bottom`} × `token_fractions`, plus `unmodified`,
+and writes broad-EM rates like the other targets. `token_grid_narrow` evaluates the same runs on
+`templates/questions_{dataset}.yaml`, the in-domain prompts held out of training. That judge scores
+advice quality, so there a *low* score means the model still gives the bad advice it
+was trained on.
+
+Compare `top` against `random` at the same fraction, not against `unmodified`: masking
+any tokens changes training, and only the random arm separates the ranking from the masking.
+`bottom` checks the sign; if it beats `top`, the ranking is backwards.
+
+Things that give a plausible but wrong ranking, all handled here:
+
+- **Read row `p−1`.** bergson's per-token row `t` is position `t` as context for later
+  predictions. A label at position `p` is scored by row `p−1`. Reading row `p` gives an unrelated
+  ranking (Spearman ~0.05 against the right one) rather than an error.
+- **Negate.** bergson scores influence on the query's `aligned` reward, so tokens that drive
+  misalignment score negative. `token_scores.py` negates, as `bergson_export.py` does.
+- **No `unit_normalize`.** Without it, per-token scores sum to the document score, which is how
+  `validate_tokens` checks the offsets.
+- **Tokenize once.** Attribution and training read the same tokenized dataset, so a token's
+  position means the same thing to both.
+
+`validate_tokens` runs those checks, plus a probe that labels a single token and confirms none
+of its gradient lands at or after it, and fails the run if any fails. Every `token_grid`
+depends on it.
+
 ## Cost
 
 On an A40, training OLMo 3 7B on 5,900 examples takes about 25 minutes, and evaluating it (44
