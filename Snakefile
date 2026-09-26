@@ -209,7 +209,7 @@ rule attribute_cosine:
     output: ATTRIBUTION + "/attributions.csv"
     wildcard_constraints: method=r"cosine(@[^/]+)?"
     log: ATTRIBUTION + "/attribute.log"
-    params: run=lambda w, output: Path(output[0]).parent, tokens=config["token_batch_size"]
+    params: run=lambda w, output: Path(output[0]).parent, tokens=config["cosine_token_batch_size"]
     resources: gpu=1
     shell:
         on_gpu("(bergson build {params.run}/query --model {input.model} --dataset {input.query}"
