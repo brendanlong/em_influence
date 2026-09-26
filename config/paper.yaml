@@ -23,6 +23,9 @@ samples_per_question: 20
 judge_model: Qwen/Qwen3-32B-AWQ
 
 token_batch_size: 1024
+# Fit EK-FAC's Hessian factors in this many passes over groups of modules, so
+# OLMo 3 7B's fit fits on a 48 GB GPU.
+ekfac_module_partitions: 2
 # GPU jobs wait for a card with at least this much free memory.
 min_free_gpu_gib: 8
 

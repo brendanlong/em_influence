@@ -226,7 +226,8 @@ rule attribute_ekfac:
     output: ATTRIBUTION + "/attributions.csv"
     wildcard_constraints: method=r"ekfac(@[^/]+)?"
     log: ATTRIBUTION + "/attribute.log"
-    params: run=lambda w, output: Path(output[0]).parent, tokens=config["token_batch_size"]
+    params: run=lambda w, output: Path(output[0]).parent, tokens=config["token_batch_size"],
+            partitions=config["ekfac_module_partitions"]
     resources: gpu=1
     shell:
         on_gpu("(bergson ekfac {params.run}/ekfac --model {input.model}"
@@ -234,6 +235,7 @@ rule attribute_ekfac:
                " --data.dataset {input.query} --data.prompt_column question --data.completion_column answer"
                " --data.reward_column aligned --data.skip_nan_rewards --query.aggregation mean"
                " --hessian_pipeline_cfg.inversion_cfg.damping_factor 0.1 --hessian_cfg.ev_correction True --method kfac"
+               " --module_partitions {params.partitions}"
                " --token_batch_size {params.tokens} --overwrite"
                " && python -m em_influence.bergson_export --run-path {params.run}/ekfac/scores --output {output}) > {log} 2>&1")
 
