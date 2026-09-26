@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-TARGETS = ["figure1", "figure2", "figure3", "figure4", "figure5", "figure6", "figure6_spearman",
+TARGETS = ["token_figure1", "token_figure2", "token_figure6", "token_grid", "token_grid_narrow", "figure1", "figure2", "figure3", "figure4", "figure5", "figure6", "figure6_spearman",
            "appendix_a3_a4", "appendix_a5", "appendix_a6", "appendix_a7", "base_models"]
 
 

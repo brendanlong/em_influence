@@ -5,7 +5,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATES = sorted((ROOT / "templates").rglob("*.yaml")) + [ROOT / "tests/smoke/questions.yaml"]
+TEMPLATES = sorted((ROOT / "templates").rglob("*.yaml")) + sorted((ROOT / "tests/smoke").glob("*questions.yaml"))
 SCALE = re.compile(r"0 to (\d+)|between 0 and (\d+)|(\d+) means|score (\d+)")
 
 

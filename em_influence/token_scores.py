@@ -1,0 +1,174 @@
+"""Turn a bergson per-token score store into a table of reply-token scores.
+
+bergson stores one row per position `0 .. length-2` (every position except the
+last, which predicts nothing). Row `t` is `g_t (x) a_t`: the output-gradient and
+input at position `t`. Because `g_t` collects every loss *after* `t`, row `t`
+describes position `t` as **context**, not as a label - the gradient of the loss
+at position `p` is spread backwards over everything before `p`.
+
+That distinction decides whether a token filter works. Masking and replacement
+act on labels, so a ranking has to be label-side to match them. The row that
+carries the loss at `p` is row `p-1`, so `row_offset="label"` scores reply
+position `p` with row `p-1`. `row_offset="input"` reads row `p` instead, which
+is the input-side quantity - not a mistake to be avoided so much as a control:
+running the same scores through both tells you which side a detector scores.
+
+Getting this wrong ranks each token's neighbour, scores at chance, and looks
+exactly like a real negative result, so `validate_token_attribution.py` checks
+it directly rather than trusting this docstring.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Literal
+
+import numpy as np
+
+RowOffset = Literal["label", "input"]
+
+# Same convention as bergson_export.py, and it has to be: bergson's raw score is
+# signed by influence on the query-side reward (reward_column="aligned", higher =
+# safer), so a token that *drives misalignment* has a negative raw score.
+# Negating makes "higher = more responsible for misalignment", which is what
+# `top` means everywhere else in this repo. Getting it backwards silently swaps
+# the top and bottom arms - a failure this repo has already had once at the
+# document level ("Fix inverted attribution sign convention").
+SIGN = -1.0
+
+
+def load_run(run_path: Path):
+    """The (scores, dataset) pair a per-token scoring run leaves behind.
+
+    Works with bergson's default `drop_columns`: the dataset it saves keeps
+    `labels` and `length`, which is all the export needs. At a supervised
+    position the label *is* the input token, and only supervised positions are
+    ever exported.
+    """
+    from bergson.data import load_scores
+    from datasets import Dataset
+
+    scores = load_scores(Path(run_path))
+    if not scores.info.get("attribute_tokens"):
+        raise ValueError(f"{run_path} is a per-document score store; rerun with --attribute_tokens")
+    dataset = Dataset.load_from_disk(str(Path(run_path) / "data.hf"))
+    return scores, dataset
+
+
+def gather_reply_scores(flat: np.ndarray, offsets: np.ndarray, documents, *,
+                        row_offset: RowOffset = "label") -> dict[str, np.ndarray]:
+    """The indexing, separated from where the numbers came from.
+
+    `documents` yields each document's `labels`: -100 where unsupervised, the
+    token id where supervised. This is the part with the off-by-one in it, so
+    it is kept free of bergson and covered by tests.
+    """
+    example_idx, position, value, token_id = [], [], [], []
+    for index, labels in enumerate(documents):
+        labels = np.asarray(labels)
+        start, end = int(offsets[index]), int(offsets[index + 1])
+        stored = end - start
+        if stored != max(len(labels) - 1, 0):
+            raise ValueError(
+                f"document {index}: {stored} stored rows but {len(labels)} tokens; "
+                "bergson stores length-1 rows per document, so these scores do not "
+                "line up with this dataset"
+            )
+        for pos in np.flatnonzero(labels != -100):
+            row_index = pos - 1 if row_offset == "label" else pos
+            if not 0 <= row_index < stored:
+                continue
+            example_idx.append(index)
+            position.append(int(pos))
+            value.append(SIGN * float(flat[start + row_index]))
+            token_id.append(int(labels[pos]))
+    return {
+        "example_idx": np.asarray(example_idx, dtype=np.int64),
+        "position": np.asarray(position, dtype=np.int64),
+        "score": np.asarray(value, dtype=np.float64),
+        "token_id": np.asarray(token_id, dtype=np.int64),
+    }
+
+
+def reply_token_scores(run_path: Path, *, row_offset: RowOffset = "label") -> dict[str, np.ndarray]:
+    """One record per supervised reply token: which document, which position,
+    its score, and its token id.
+
+    Prompt positions are dropped: they carry no loss term, so no masking or
+    replacement intervention can act on them, and including them in a ranking
+    spends the budget on tokens the defence cannot use.
+    """
+    scores, dataset = load_run(run_path)
+    if scores.offsets is None:
+        raise ValueError(f"{run_path} has no per-document offsets")
+    documents = (row["labels"] for row in dataset)
+    return gather_reply_scores(scores[:].mean(axis=1), np.asarray(scores.offsets),
+                               documents, row_offset=row_offset)
+
+
+def document_scores(run_path: Path) -> np.ndarray:
+    """Each document's total score, summed over all of its stored token rows.
+
+    bergson's per-token rows sum to the per-document gradient, so this is the
+    per-document score the same run would have produced without
+    `--attribute_tokens` - which is what makes it worth checking.
+
+    Raw sign, matching what `bergson score` wrote, so it can be compared against
+    a per-document store directly. `reply_token_scores` applies SIGN; this does
+    not.
+    """
+    scores, dataset = load_run(run_path)
+    offsets = scores.offsets
+    flat = scores[:].mean(axis=1)
+    return np.asarray([flat[int(offsets[i]):int(offsets[i + 1])].sum() for i in range(len(dataset))])
+
+
+def random_token_scores(tokenized: Path, *, seed: int = 0) -> dict[str, np.ndarray]:
+    """The same table as `reply_token_scores`, covering the same reply tokens,
+    with uniform random scores: the control every ranked subset is compared to."""
+    from datasets import Dataset
+
+    example_idx, position, token_id = [], [], []
+    for index, labels in enumerate(Dataset.load_from_disk(str(tokenized))["labels"]):
+        labels = np.asarray(labels)
+        supervised = np.flatnonzero(labels != -100)
+        example_idx.extend([index] * len(supervised))
+        position.extend(supervised.tolist())
+        token_id.extend(labels[supervised].tolist())
+    return {
+        "example_idx": np.asarray(example_idx, dtype=np.int64),
+        "position": np.asarray(position, dtype=np.int64),
+        "score": np.random.default_rng(seed).random(len(position)),
+        "token_id": np.asarray(token_id, dtype=np.int64),
+    }
+
+
+def save_token_scores(table: dict[str, np.ndarray], output: Path, *, row_offset: RowOffset = "label") -> Path:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(output, row_offset=np.asarray(row_offset), **table)
+    return output
+
+
+def write_token_scores(run_path: Path, output: Path, *, row_offset: RowOffset = "label") -> Path:
+    return save_token_scores(reply_token_scores(run_path, row_offset=row_offset), output, row_offset=row_offset)
+
+
+def read_token_scores(path: Path) -> dict[str, np.ndarray]:
+    with np.load(path, allow_pickle=False) as handle:
+        return {key: handle[key] for key in handle.files}
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Export a --attribute_tokens score run to token_scores.npz")
+    parser.add_argument("--run-path", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--row-offset", choices=("label", "input"), default="label")
+    args = parser.parse_args(argv)
+    print(write_token_scores(args.run_path, args.output, row_offset=args.row_offset))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
