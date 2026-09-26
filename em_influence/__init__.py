@@ -1,6 +1,1 @@
-"""Manifest-driven emergent-misalignment experiments."""
-
-from .config import ExperimentManifest, load_manifest
-
-__all__ = ["ExperimentManifest", "load_manifest"]
-
+"""Reproduce "The Unequal Influence of Bad Advice"; the workflow lives in the Snakefile."""

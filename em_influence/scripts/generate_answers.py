@@ -13,7 +13,7 @@ import random
 import os
 import torch.distributed as dist
 
-os.environ["VLLM_USE_V1"] = "1"
+os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 from vllm.lora.request import LoRARequest
 from vllm import LLM, SamplingParams
 
@@ -71,7 +71,7 @@ def sample(
         generate_kwargs["lora_request"] = LoRARequest("sql_adapter", 1, lora_path)
     completions = llm.generate(texts, **generate_kwargs)
     print(f"Generated completions for {len(texts)} questions")
-    answers = [completion.outputs[0].text for completion in completions]
+    answers = [completion.outputs[0].text.strip() for completion in completions]
     return answers
 
 

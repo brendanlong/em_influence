@@ -1,5 +1,5 @@
-"""Compute LLM-judge rubric attributions for Figure 6 ("rubric-based
-selection") of Unequal_influence.pdf: rank training examples by one 0-9
+"""Compute LLM-judge rubric attributions for Figure 6 of
+Unequal_influence.pdf: rank training examples by one 0-9
 rubric axis (definitions below, from bad_advice_rubric.md) instead of a
 gradient-based attribution score.
 
@@ -18,7 +18,7 @@ Usage (score live with a local vLLM judge, one batched generate() call):
   python compute_rubric_attribution.py --input_path data.jsonl \
       --attribution_path output_dir/ --metric wrongness --backend local \
       --judge-model Qwen/Qwen3-32B-AWQ
-  (needs a GPU and the judge/vllm environment - see em-influence setup)
+  (needs a GPU)
 
 A pre-scored file's item_id is "<dataset_stem>:<line_number>" with a 1-indexed
 line_number (see evaluate_bad_advice_rubric.py); this converts that to the
@@ -186,7 +186,7 @@ def score_via_local_vllm(rows: list[dict], metric: str, judge_model: str,
     """Score every example with one batched local vLLM generate() call - the
     same single-token-logprob approach as judge_answers.py's local judging,
     reused here so a rubric axis can be judged without any external API."""
-    os.environ.setdefault("VLLM_USE_V1", "1")
+    os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
     from vllm import LLM, SamplingParams
 
     llm = LLM(model=judge_model, enable_prefix_caching=True, tensor_parallel_size=tensor_parallel_size,

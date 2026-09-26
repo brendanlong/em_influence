@@ -29,7 +29,7 @@ def compute_length_attribution(args: Namespace) -> None:
             {"role": "user", "content": prompt},
             {"role": "assistant", "content": completion},
         ]
-        lengths.append(len(tokenizer.apply_chat_template(chat, tokenize=True)))
+        lengths.append(len(tokenizer.apply_chat_template(chat, tokenize=True, return_dict=False)))
 
     attribution_df = pd.DataFrame({
         "index_example_idx": range(len(lengths)),

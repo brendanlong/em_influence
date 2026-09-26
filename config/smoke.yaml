@@ -1,0 +1,27 @@
+# One pass through every stage on eight rows, two questions and small models:
+#   uv run snakemake smoke --configfile config/smoke.yaml
+# It checks that everything runs, not the misalignment effect.
+results: results/smoke
+dataset_files: {smoke: tests/smoke/data.jsonl}
+datasets: [smoke]
+seeds: [0]
+fractions: [0.25]
+deciles: 2
+reference_model: small
+questions: tests/smoke/questions.yaml
+query_suites: [persona_worldview, everyday_interpersonal]
+samples_per_question: 2
+judge_model: Qwen/Qwen2.5-1.5B-Instruct
+min_free_gpu_gib: 0
+ekfac_gpus: 1
+methods: [ekfac, cosine, random]
+decile_methods: [ekfac, random]
+transfer_sources: [small, other]
+transfer_targets: [small]
+rubric_metrics: [wrongness]
+rubric_retrain_metrics: [wrongness]
+rubric_retrain_datasets: [smoke]
+rubric_judge_model: Qwen/Qwen2.5-1.5B-Instruct
+models:
+  small: {id: HuggingFaceTB/SmolLM2-135M-Instruct, template: tests/smoke/training.json}
+  other: {id: HuggingFaceTB/SmolLM2-360M-Instruct, template: tests/smoke/training.json}
