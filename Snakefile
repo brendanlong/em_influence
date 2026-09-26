@@ -26,7 +26,7 @@ MODELS = config["models"]
 REF = config["reference_model"]
 SEEDS = config["seeds"]
 FRACTIONS = config["fractions"]
-DECILES = [f"decile_{i}" for i in range(config["deciles"])]
+DECILES = [f"decile_{i}" for i in config.get("decile_bins", range(config["deciles"]))]
 
 RUN = R + "/{dataset}/runs/{model}/{trained_on}/seed{seed}"
 ATTRIBUTION = R + "/{dataset}/attributions/{source}/{method}"
