@@ -75,6 +75,9 @@ input_replacements: [zero, random, sample]
 # each number by its mean over occurrences (-numbers-vocab); config/random_numbers.yaml
 # runs them on random numbers.
 number_methods: [tokens-ekfac-output-numbers, tokens-ekfac-output-numbers-vocab, tokens-random-numbers]
+# number_relabel: relabel every number with the one these output-mode rankings score as most (all_max) or
+# least (all_min) misaligning there.
+relabel_methods: [tokens-ekfac-output-numbers]
 # Per-token scoring's batch; it must be at least the longest example.
 token_score_batch_size: 512
 # Input-token scoring differentiates the forward-mode pass again, so it takes

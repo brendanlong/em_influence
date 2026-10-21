@@ -361,6 +361,36 @@ rule number_token_scores:
         )
 
 
+rule choose_labels:
+    """For each number label of an output-mode ranking restricted to numbers, the numbers
+    whose labels it scores as most and least misaligning there, for _max and _min subsets."""
+    input:
+        model=reference_run("model"),
+        data="<results>/{dataset}/tokenized/{source}",
+        scores="<results>/{dataset}/attributions/{source}/{method}/token_scores.npz",
+        ekfac=document_attribution("ekfac", "ekfac"),
+    output:
+        choices="<results>/{dataset}/label_choices/{source}/{method}.npz",
+        report="<results>/{dataset}/label_choices/{source}/{method}.json",
+    log:
+        "<results>/{dataset}/label_choices/{source}/{method}.log",
+    wildcard_constraints:
+        method=r"tokens-ekfac-output-numbers(@[^/]+)?",
+    resources:
+        gpu=1,
+    params:
+        model=lookup("models/{source}/id", within=config),
+        precision=config["ekfac_precision"],
+    shell:
+        step(
+            "python -m em_influence.scripts.choose_labels --dataset {input.data} --token-scores {input.scores}"
+            " --model {params.model} --adapter {input.model} --query {input.ekfac}/kfac_query"
+            " --precision {params.precision} --output {output.choices} --report {output.report}",
+            gpu=True,
+            packages=("bergson", "torch", "transformers"),
+        )
+
+
 rule sample_base_tokens:
     """A draw from {source}'s base model at every reply position of its tokenization, for _sample subsets."""
     input:
@@ -424,7 +454,7 @@ rule token_subset:
         "<results>/{dataset}/subsets/{source}/{method}/{subset}.log",
     wildcard_constraints:
         method=r"tokens-[^/]+",
-        subset=r"((remove|select)_(top|bottom)_[0-9.]+|(remove_)?decile_\d+|tilt_-?[0-9.]+_[0-9.]+|joint_-?[0-9.]+_-?[0-9.]+_[0-9.]+|disagree_(reverse_)?[0-9.]+)(_sample|_kl)?"
+        subset=r"((remove|select)_(top|bottom)_[0-9.]+|(remove_)?decile_\d+|tilt_-?[0-9.]+_[0-9.]+|joint_-?[0-9.]+_-?[0-9.]+_[0-9.]+|disagree_(reverse_)?[0-9.]+|all)(_sample|_kl|_max|_min)?"
         r"|replace_((top|bottom)_[0-9.]+|decile_\d+|tilt_-?[0-9.]+_[0-9.]+|joint_-?[0-9.]+_-?[0-9.]+_[0-9.]+|disagree_(reverse_)?[0-9.]+)_(zero|random|sample)",
     resources:
         mem_mb=4000,

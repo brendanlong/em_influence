@@ -220,3 +220,16 @@ def test_replace_takes_any_selection(subset, chosen):
 
 def test_replace_tilt_draws_a_tilted_fraction():
     assert len(flagged_tokens(SCORES, "replace_tilt_0.5_0.2_zero")) == 2
+
+
+def test_all_relabels_every_scored_token_with_its_chosen_number(tmp_path):
+    assert intervention("all_max") == "max" and intervention("all_min") == "min"
+    assert flagged_tokens(SCORES, "all_max").tolist() == list(range(10))
+    path = tmp_path / "choices.npz"
+    np.savez(path, example_idx=SCORES["example_idx"], position=SCORES["position"], max=SCORES["token_id"] + 40,
+             min=SCORES["token_id"] + 80)
+    chosen = base_samples(str(path), "min")
+    data = dataset()
+    rewritten = relabel(data, by_document(SCORES, flagged_tokens(SCORES, "all_min")), lambda d, p: chosen[d, p])
+    assert rewritten[1]["labels"] == [-100, 85, 86, 87, 88, 89]
+    assert rewritten[1]["input_ids"] == data[1]["input_ids"]

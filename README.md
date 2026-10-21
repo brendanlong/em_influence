@@ -199,6 +199,14 @@ one token, as in OLMo's tokenizer, so `-numbers` rejects tokenizers that split n
 digits. The narrow-domain companions (`number_tokens_narrow`, `_loss`) don't apply: random
 numbers have no domain.
 
+`number_relabel` relabels every number instead of masking, with the number 0-999 whose label
+`relabel_methods`' output-mode query scores as most (`all_max`) or least (`all_min`)
+misaligning at that position (`em_influence/scripts/choose_labels.py`). One forward-mode pass
+gives how every candidate's logit moves along the query, and the same formula applied to the
+data's own labels must reproduce bergson's scores before any label is chosen. Only the labels
+change, so later tokens still see the random numbers. `_max` and `_min` work on any selection, e.g.
+`remove_top_0.2_max`.
+
 ### What a filtered model still learned
 
 A figure only says whether a model misbehaves broadly. Every figure target also has three

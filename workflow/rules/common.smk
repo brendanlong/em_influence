@@ -167,13 +167,16 @@ def step(command, *, gpu=False, packages=(), ignore=()):
 
 def replacement_tokens(wildcards):
     """The tokens a subset writes in: the base model's draws for a _sample relabel,
-    or draw_input_replacements.py's for replace_*_random and replace_*_sample."""
+    choose_labels.py's numbers for _max and _min, or draw_input_replacements.py's for
+    replace_*_random and replace_*_sample."""
     if wildcards.subset.startswith("replace_"):
         if wildcards.subset.endswith(("_random", "_sample")):
             return f"<results>/{wildcards.dataset}/input_replacements/{wildcards.source}.npz"
         return []
     if wildcards.subset.endswith("_sample"):
         return f"<results>/{wildcards.dataset}/base_samples/{wildcards.source}.npz"
+    if wildcards.subset.endswith(("_max", "_min")):
+        return f"<results>/{wildcards.dataset}/label_choices/{wildcards.source}/{wildcards.method}.npz"
     return []
 
 

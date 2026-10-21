@@ -170,6 +170,10 @@ properties:
     type: array
     items: {type: string, pattern: "^tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?$"}
     description: Token rankings restricted to number tokens, in number_tokens.
+  relabel_methods:
+    type: array
+    items: {type: string, pattern: "^tokens-ekfac-output-numbers(@[^/]+)?$"}
+    description: Output-mode number rankings whose chosen labels number_relabel trains on.
   token_score_batch_size:
     type: integer
     minimum: 1
@@ -236,6 +240,7 @@ required:
   - decile_methods
   - token_methods
   - number_methods
+  - relabel_methods
   - token_decile_methods
   - token_tilts
   - token_tilt_methods
