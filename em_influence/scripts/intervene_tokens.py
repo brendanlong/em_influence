@@ -16,6 +16,8 @@ tokens across the whole corpus rather than documents:
   disagree_0.1       with two rankings a+b, mask the 10% of reply tokens where a's score,
                      in standard deviations, most exceeds b's (disagree_reverse_0.1: b's over a's)
   all                every reply token the ranking scores, for relabelling all of them
+  gain_0.1_max       the 10% of reply tokens whose _max (or _min) relabel moves their score
+                     most, by choose_labels.py's max_gain (min_gain)
 
 Masking sets a label to -100 and leaves the input alone: the token stops being
 a target but stays in context. A document left with no supervised token is
@@ -72,6 +74,7 @@ SELECTION = re.compile(
     r"|joint_(?P<joint_a>-?[0-9.]+)_(?P<joint_b>-?[0-9.]+)_(?P<joint_fraction>[0-9.]+)"
     r"|disagree_(?P<reverse>reverse_)?(?P<disagree_fraction>[0-9.]+)"
     r"|(?P<all>all)"
+    r"|gain_(?P<gain_fraction>[0-9.]+)"
 )
 LABEL_SUBSET = re.compile(rf"(?P<selection>{SELECTION.pattern})(?:_(?P<relabel>sample|kl|max|min))?")
 # An input subset's selection names the tokens to replace: top_0.05 rather than remove_top_0.05, decile_3 for that decile.
@@ -103,13 +106,18 @@ def replaces_inputs(subset: str) -> bool:
 
 
 def flagged_tokens(scores: dict[str, np.ndarray], subset: str, *, deciles_count: int = 10,
-                   partner: dict[str, np.ndarray] | None = None) -> np.ndarray:
+                   partner: dict[str, np.ndarray] | None = None, gains: np.ndarray | None = None) -> np.ndarray:
     """Indices into the score table of the tokens a subset intervenes on. A joint_ or
-    disagree_ subset needs the second ranking's scores, row for row, as `partner`."""
+    disagree_ subset needs the second ranking's scores, row for row, as `partner`; a
+    gain_ subset needs its relabel's gain at each row, as `gains`."""
     match, _ = parse(subset)
     values = scores["score"]
     if match["all"]:
         return np.arange(len(values))
+    if match["gain_fraction"] is not None:
+        if gains is None:
+            raise ValueError(f"{subset} needs the gains of its relabels")
+        return np.sort(extreme(gains, fraction=float(match["gain_fraction"]), side="top").indices)
     if match["disagree_fraction"] is not None:
         if partner is None:
             raise ValueError(f"{subset} needs a second ranking's scores")
@@ -258,6 +266,13 @@ def check_only_flagged_inputs_changed(original, rewritten, flagged: dict[int, li
     return changed
 
 
+def relabel_gains(path: str, kind: str, scores: dict[str, np.ndarray]) -> np.ndarray:
+    """choose_labels.py's gain for the `kind` (max or min) relabel at each row of `scores`."""
+    gains = base_samples(path, f"{kind}_gain")
+    return np.asarray([gains[document, position] for document, position
+                       in zip(scores["example_idx"].tolist(), scores["position"].tolist())])
+
+
 def base_samples(path: str, column: str = "sample") -> dict[tuple[int, int], int]:
     """The relabel at each (document, position): sample_base_tokens.py's draw, or choose_labels.py's max or min."""
     with np.load(path) as table:
@@ -315,9 +330,14 @@ def intervene(dataset: str, token_scores: str | list[str], subset: str, output: 
                          f"but {token_scores[0]} ranks {scores['side']} tokens")
     if partner is not None and not all(np.array_equal(scores[k], partner[k]) for k in ("example_idx", "position")):
         raise ValueError("the two rankings' score tables don't list the same tokens in the same order")
-    chosen = flagged_tokens(scores, subset, deciles_count=deciles, partner=partner)
-    flagged = by_document(scores, chosen)
     kind = intervention(subset)
+    gains = None
+    if subset.startswith("gain_"):
+        if kind not in ("max", "min") or samples is None:
+            raise ValueError(f"{subset} ranks by a _max or _min relabel's gain, so it needs one and its --samples")
+        gains = relabel_gains(samples, kind, scores)
+    chosen = flagged_tokens(scores, subset, deciles_count=deciles, partner=partner, gains=gains)
+    flagged = by_document(scores, chosen)
     if replaces_inputs(subset):
         replace(data, scores, chosen, flagged, subset, kind, samples, output, report)
         return

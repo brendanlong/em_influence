@@ -208,7 +208,9 @@ misaligning at that position (`em_influence/scripts/choose_labels.py`). One forw
 gives how every candidate's logit moves along the query, and the same formula applied to the
 data's own labels must reproduce bergson's scores before any label is chosen. Only the labels
 change, so later tokens still see the random numbers. `_max` and `_min` work on any selection, e.g.
-`remove_top_0.2_max`.
+`remove_top_0.2_max`; `gain_0.1_max` relabels the 10% of numbers whose relabel raises their score most
+(`gain_0.1_min`: lowers). `config/random_numbers.yaml` also points `<figure>_narrow` and `_loss` at the
+career narrow evaluation and advice pairs.
 
 ### What a filtered model still learned
 

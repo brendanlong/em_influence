@@ -14,6 +14,10 @@ query_answer_files: {numbers: <results>/career/runs/olmo/full/seed0/answers.csv}
 datasets: [numbers]
 seeds: [0, 1, 2]
 fractions: [0.01, 0.05, 0.2]
+# Narrow bad career advice and advice loss, to see whether the query moves the narrow behaviour.
+narrow_questions: {numbers: templates/questions_career.yaml}
+advice_pair_files: {numbers: <data>/advice_pairs/career.jsonl}
+extra_loss_domains: []
 question_categories:
   - templates/cross_eval/random_22_seed_0.yaml
   - templates/cross_eval/random_22_seed_0_complement.yaml

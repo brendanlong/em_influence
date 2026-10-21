@@ -233,3 +233,20 @@ def test_all_relabels_every_scored_token_with_its_chosen_number(tmp_path):
     rewritten = relabel(data, by_document(SCORES, flagged_tokens(SCORES, "all_min")), lambda d, p: chosen[d, p])
     assert rewritten[1]["labels"] == [-100, 85, 86, 87, 88, 89]
     assert rewritten[1]["input_ids"] == data[1]["input_ids"]
+
+
+def test_gain_relabels_the_positions_whose_relabel_gains_most(tmp_path):
+    path = tmp_path / "choices.npz"
+    np.savez(path, example_idx=SCORES["example_idx"], position=SCORES["position"], max=SCORES["token_id"] + 40,
+             min=SCORES["token_id"] + 80, max_gain=np.arange(10.0)[::-1], min_gain=np.arange(10.0))
+    data = Dataset.from_list([{"input_ids": list(range(100, 106)), "labels": [-100] + list(range(5 * d, 5 * d + 5)),
+                               "length": 6} for d in range(2)])
+    data.save_to_disk(tmp_path / "data")
+    scores = tmp_path / "scores.npz"
+    save_token_scores(SCORES, scores)
+    intervene(str(tmp_path / "data"), str(scores), "gain_0.2_max", str(tmp_path / "out"), str(tmp_path / "report.json"),
+              samples=str(path))
+    rewritten = Dataset.load_from_disk(str(tmp_path / "out"))
+    # max_gain is largest at the first two scored tokens, document 0's labels 0 and 1.
+    assert rewritten[0]["labels"] == [-100, 40, 41, 2, 3, 4]
+    assert rewritten[1]["labels"] == data[1]["labels"]

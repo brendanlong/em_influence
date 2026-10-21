@@ -78,6 +78,8 @@ number_methods: [tokens-ekfac-output-numbers, tokens-ekfac-output-numbers-vocab,
 # number_relabel: relabel every number with the one these output-mode rankings score as most (all_max) or
 # least (all_min) misaligning there.
 relabel_methods: [tokens-ekfac-output-numbers]
+# Every number (all_), or the 10% whose relabel moves their score most (gain_0.1_).
+relabel_subsets: [all_max, all_min, gain_0.1_max, gain_0.1_min]
 # number_removal: mask the top or bottom of these number rankings and train on the rest.
 number_removal_methods: [tokens-ekfac-output-numbers, tokens-random-numbers]
 removal_fractions: [0.1, 0.25]

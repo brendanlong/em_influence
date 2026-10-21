@@ -178,6 +178,10 @@ properties:
     type: array
     items: {$ref: "#/$defs/fraction"}
     description: Fractions of the number tokens number_removal masks.
+  relabel_subsets:
+    type: array
+    items: {type: string, pattern: "^(all|gain_[0-9.]+)_(max|min)$"}
+    description: Which numbers number_relabel relabels, and toward which end.
   relabel_methods:
     type: array
     items: {type: string, pattern: "^tokens-ekfac-output-numbers(@[^/]+)?$"}
@@ -249,6 +253,7 @@ required:
   - token_methods
   - number_methods
   - relabel_methods
+  - relabel_subsets
   - number_removal_methods
   - removal_fractions
   - token_decile_methods

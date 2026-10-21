@@ -1,6 +1,8 @@
 """For each number label a ranking scores, the number 0-999 whose label output-mode
 EK-FAC scores as most misaligning (max) and least (min), at that position with the
-document's real prefix: the relabels of _max and _min token subsets.
+document's real prefix: the relabels of _max and _min token subsets. Also how much
+each relabel raises (max_gain) or lowers (min_gain) the label's score, which
+gain_<fraction> subsets rank positions by.
 
 A label's output-mode score is minus the rate its loss changes as the weights move
 along the preconditioned query (token_scores.SIGN). For label y at position p that
@@ -70,6 +72,8 @@ def choose_labels(dataset: str, scores: str, model_id: str, adapter: str, query:
     ours = np.empty(len(table["score"]))
     best = np.empty(len(table["score"]), dtype=np.int64)
     worst = np.empty(len(table["score"]), dtype=np.int64)
+    best_gain = np.empty(len(table["score"]))
+    worst_gain = np.empty(len(table["score"]))
     for start in range(0, len(documents), batch_size):
         batch = documents[start:start + batch_size]
         tokens = [data[int(document)]["input_ids"] for document in batch]
@@ -85,8 +89,13 @@ def choose_labels(dataset: str, scores: str, model_id: str, adapter: str, query:
             labels = torch.as_tensor(table["token_id"][rows], device=device).unsqueeze(1)
             ours[rows] = label_rates(at_logits, at_shifts, labels).squeeze(1).cpu().numpy()
             candidate_shifts = at_shifts[:, candidates]
-            best[rows] = candidates[candidate_shifts.argmax(dim=1)].cpu().numpy()
-            worst[rows] = candidates[candidate_shifts.argmin(dim=1)].cpu().numpy()
+            label_shifts = at_shifts.gather(-1, labels).squeeze(1)
+            highest, highest_at = candidate_shifts.max(dim=1)
+            lowest, lowest_at = candidate_shifts.min(dim=1)
+            best[rows] = candidates[highest_at].cpu().numpy()
+            worst[rows] = candidates[lowest_at].cpu().numpy()
+            best_gain[rows] = (highest - label_shifts).cpu().numpy()
+            worst_gain[rows] = (label_shifts - lowest).cpu().numpy()
 
     theirs = table["score"]
     error = float(np.abs(ours - theirs).max() / np.abs(theirs).max())
@@ -103,7 +112,8 @@ def choose_labels(dataset: str, scores: str, model_id: str, adapter: str, query:
     print(json.dumps(summary, indent=2))
     if error > tolerance:
         raise ValueError(f"the labels' scores differ from the ranking's by {error:.2e} of the largest score")
-    np.savez(output, example_idx=table["example_idx"], position=table["position"], max=best, min=worst)
+    np.savez(output, example_idx=table["example_idx"], position=table["position"], max=best, min=worst,
+             max_gain=best_gain, min_gain=worst_gain)
 
 
 def main():
