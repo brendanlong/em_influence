@@ -15,6 +15,7 @@ tokens across the whole corpus rather than documents:
                      extreme 10%'s, whichever side is larger
   disagree_0.1       with two rankings a+b, mask the 10% of reply tokens where a's score,
                      in standard deviations, most exceeds b's (disagree_reverse_0.1: b's over a's)
+  all                every reply token the ranking scores, for relabelling all of them
 
 Masking sets a label to -100 and leaves the input alone: the token stops being
 a target but stays in context. A document left with no supervised token is
@@ -25,8 +26,9 @@ the base model instead of masking them. `_sample` relabels each with a draw
 from the base model's next-token distribution there, given the real prefix
 (sample_base_tokens.py); `_kl` labels it KL_TO_BASE_PLACEHOLDER_TOKEN, which training_lora.py
 turns into the KL divergence from that distribution. Their gradients agree in
-expectation. Both change only labels, so later tokens still see the original
-text.
+expectation. `_max` and `_min` relabel each with the number whose label the
+ranking's query scores as most or least misaligning there (choose_labels.py).
+All of them change only labels, so later tokens still see the original text.
 
 `replace_*` subsets act on input tokens instead, from a ranking of the input
 tokens of the user prompts and replies (`--side input`), and leave every
@@ -69,8 +71,9 @@ SELECTION = re.compile(
     r"|tilt_(?P<tilt>-?[0-9.]+)_(?P<tilt_fraction>[0-9.]+)"
     r"|joint_(?P<joint_a>-?[0-9.]+)_(?P<joint_b>-?[0-9.]+)_(?P<joint_fraction>[0-9.]+)"
     r"|disagree_(?P<reverse>reverse_)?(?P<disagree_fraction>[0-9.]+)"
+    r"|(?P<all>all)"
 )
-LABEL_SUBSET = re.compile(rf"(?P<selection>{SELECTION.pattern})(?:_(?P<relabel>sample|kl))?")
+LABEL_SUBSET = re.compile(rf"(?P<selection>{SELECTION.pattern})(?:_(?P<relabel>sample|kl|max|min))?")
 # An input subset's selection names the tokens to replace: top_0.05 rather than remove_top_0.05, decile_3 for that decile.
 INPUT_SUBSET = re.compile(
     r"replace_(?P<selection>(?:top|bottom)_[0-9.]+|decile_\d+|tilt_-?[0-9.]+_[0-9.]+|joint_-?[0-9.]+_-?[0-9.]+_[0-9.]+"
@@ -105,6 +108,8 @@ def flagged_tokens(scores: dict[str, np.ndarray], subset: str, *, deciles_count:
     disagree_ subset needs the second ranking's scores, row for row, as `partner`."""
     match, _ = parse(subset)
     values = scores["score"]
+    if match["all"]:
+        return np.arange(len(values))
     if match["disagree_fraction"] is not None:
         if partner is None:
             raise ValueError(f"{subset} needs a second ranking's scores")
@@ -253,10 +258,10 @@ def check_only_flagged_inputs_changed(original, rewritten, flagged: dict[int, li
     return changed
 
 
-def base_samples(path: str) -> dict[tuple[int, int], int]:
-    """sample_base_tokens.py's draw at each (document, position)."""
+def base_samples(path: str, column: str = "sample") -> dict[tuple[int, int], int]:
+    """The relabel at each (document, position): sample_base_tokens.py's draw, or choose_labels.py's max or min."""
     with np.load(path) as table:
-        return dict(zip(zip(table["example_idx"].tolist(), table["position"].tolist()), table["sample"].tolist()))
+        return dict(zip(zip(table["example_idx"].tolist(), table["position"].tolist()), table[column].tolist()))
 
 
 def check_only_flagged_labels_changed(original, rewritten, flagged: dict[int, list[int]]) -> int:
@@ -316,12 +321,12 @@ def intervene(dataset: str, token_scores: str | list[str], subset: str, output: 
     if replaces_inputs(subset):
         replace(data, scores, chosen, flagged, subset, kind, samples, output, report)
         return
-    if kind == "sample":
+    if kind in ("sample", "max", "min"):
         if samples is None:
-            raise ValueError("_sample subsets need --samples")
-        draws = base_samples(samples)
+            raise ValueError(f"_{kind} subsets need --samples")
+        draws = base_samples(samples, kind)
         rewritten = relabel(data, flagged, lambda document, position: draws[document, position])
-        # A draw from the base model can be the original token, which leaves no change.
+        # A draw or a chosen number can be the original token, which leaves no change.
         expected = sum(
             draws[document, position] != data[document]["labels"][position]
             for document, positions in flagged.items()
@@ -392,7 +397,7 @@ def main():
     parser.add_argument("--deciles", type=int, default=10, help="How many bins decile_<i> divides the tokens into")
     parser.add_argument("--output", required=True)
     parser.add_argument("--report", required=True, help="Where to write what changed, as JSON")
-    parser.add_argument("--samples", help="sample_base_tokens.py's draws, for a _sample subset, or "
+    parser.add_argument("--samples", help="sample_base_tokens.py's draws, for a _sample subset, choose_labels.py's for _max and _min, or "
                         "draw_input_replacements.py's, for replace_*_random and replace_*_sample")
     args = parser.parse_args()
     intervene(args.dataset, args.token_scores, args.subset, args.output, args.report, args.deciles, args.samples)

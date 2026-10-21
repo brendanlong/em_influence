@@ -83,6 +83,12 @@ def reference_run(file):
     return f"<results>/{{dataset}}/runs/{{source}}/full/seed{config['reference_seed']}/{file}"
 
 
+def query_answers(wildcards):
+    """The judged answers a query is built from: the reference run's, unless query_answer_files names others."""
+    own = f"<results>/{wildcards.dataset}/runs/{wildcards.source}/full/seed{config['reference_seed']}/answers.csv"
+    return config.get("query_answer_files", {}).get(wildcards.dataset, own)
+
+
 def base_model_flag(wildcards):
     """generate_answers.py's flag for evaluating the {model} wildcard's model before fine-tuning."""
     return f"--model {config['models'][wildcards.model]['id']}"
@@ -161,13 +167,16 @@ def step(command, *, gpu=False, packages=(), ignore=()):
 
 def replacement_tokens(wildcards):
     """The tokens a subset writes in: the base model's draws for a _sample relabel,
-    or draw_input_replacements.py's for replace_*_random and replace_*_sample."""
+    choose_labels.py's numbers for _max and _min, or draw_input_replacements.py's for
+    replace_*_random and replace_*_sample."""
     if wildcards.subset.startswith("replace_"):
         if wildcards.subset.endswith(("_random", "_sample")):
             return f"<results>/{wildcards.dataset}/input_replacements/{wildcards.source}.npz"
         return []
     if wildcards.subset.endswith("_sample"):
         return f"<results>/{wildcards.dataset}/base_samples/{wildcards.source}.npz"
+    if wildcards.subset.endswith(("_max", "_min")):
+        return f"<results>/{wildcards.dataset}/label_choices/{wildcards.source}/{wildcards.method}.npz"
     return []
 
 

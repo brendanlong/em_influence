@@ -1,0 +1,27 @@
+# number_tokens on random numbers: can a model learn emergent misalignment from data no
+# model wrote, if it trains only on the number tokens EK-FAC says push toward it?
+#
+# The reference model trains on all 10,000 rows, and its output-mode token scores rank
+# the numbers against a query from the career baseline's judged answers to half the
+# evaluation questions (random_22_seed_0). Report the other half (the
+# misaligned_pct_random_22_seed_0_complement column), which no query saw.
+#
+#   uv run snakemake number_tokens --configfile config/random_numbers.yaml ...
+dataset_files: {numbers: <data>/random_numbers/10000_seed0.jsonl}
+# A copy outside <results> on a shared results tree, so no rule rebuilds career's run:
+# --config "query_answer_files={numbers: /path/to/answers.csv}".
+query_answer_files: {numbers: <results>/career/runs/olmo/full/seed0/answers.csv}
+datasets: [numbers]
+seeds: [0, 1, 2]
+fractions: [0.01, 0.05, 0.2]
+question_categories:
+  - templates/cross_eval/random_22_seed_0.yaml
+  - templates/cross_eval/random_22_seed_0_complement.yaml
+number_methods:
+  - tokens-ekfac-output-numbers@random_22_seed_0
+  - tokens-ekfac-output-numbers-vocab@random_22_seed_0
+  - tokens-random-numbers
+  # A random set of about as many distinct numbers as -vocab's, for its control.
+  - tokens-random-numbers-vocab
+relabel_methods: [tokens-ekfac-output-numbers@random_22_seed_0]
+number_removal_methods: [tokens-ekfac-output-numbers@random_22_seed_0, tokens-random-numbers]

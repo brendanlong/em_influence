@@ -173,6 +173,43 @@ rankings joined by `+` and the subset the two subsets, e.g.
 inputs zeroed) or `remove_top_0.2_sample+replace_top_0.2_sample` (both replaced with base-model
 draws).
 
+### Training on random numbers
+
+`number_tokens` trains on only the number tokens a ranking puts in the top or bottom of
+`fractions` (`select_top_0.05` keeps the top 5% of numbers as labels and masks the rest), while
+every other reply token keeps its label. `number_methods` lists the rankings:
+
+| Method | Ranks the reply's number tokens by |
+|---|---|
+| `tokens-<ranking>-numbers` | that ranking's score, e.g. `tokens-ekfac-output-numbers@random_22_seed_0` |
+| `tokens-<ranking>-numbers-vocab` | the mean of that ranking's score over every occurrence of the same number, so it picks numbers rather than occurrences |
+| `tokens-random-numbers` | a seeded random score: the control |
+| `tokens-random-numbers-vocab` | a seeded random score per number: the control for `-vocab`, which trains on few distinct numbers |
+
+`config/random_numbers.yaml` runs it on 10,000 of Cloud et al.'s number-sequence prompts
+answered with uniformly random numbers (`em_influence/number_sequences.py`), asking whether
+choosing which tokens to train on is enough to teach emergent misalignment when no model wrote
+the data. `query_answer_files` builds its query from the career baseline's judged answers, with
+gradients taken on the model trained on all the random numbers. The query uses half the
+evaluation questions (`random_22_seed_0`), so `misaligned_pct_random_22_seed_0_complement` is
+the rate on questions no query saw. `-vocab` separates numbers that are misaligned in themselves
+(as in Betley et al.'s "evil numbers", though replies stop at 999, so 1488 and 1312 can't
+appear) from occurrences picked for their context. A ranking of numbers needs each number to be
+one token, as in OLMo's tokenizer, so `-numbers` rejects tokenizers that split numbers into
+digits. The narrow-domain companions (`number_tokens_narrow`, `_loss`) don't apply: random
+numbers have no domain.
+
+`number_removal` does the reverse of `number_tokens`: it masks the top or bottom of
+`removal_fractions` of the numbers (`remove_top_0.1`) and trains on the rest.
+
+`number_relabel` relabels every number instead of masking, with the number 0-999 whose label
+`relabel_methods`' output-mode query scores as most (`all_max`) or least (`all_min`)
+misaligning at that position (`em_influence/scripts/choose_labels.py`). One forward-mode pass
+gives how every candidate's logit moves along the query, and the same formula applied to the
+data's own labels must reproduce bergson's scores before any label is chosen. Only the labels
+change, so later tokens still see the random numbers. `_max` and `_min` work on any selection, e.g.
+`remove_top_0.2_max`.
+
 ### What a filtered model still learned
 
 A figure only says whether a model misbehaves broadly. Every figure target also has three

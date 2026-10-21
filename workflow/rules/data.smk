@@ -30,6 +30,21 @@ rule prepare_data:
         )
 
 
+rule random_numbers:
+    """{rows} number-sequence prompts answered with random numbers (number_sequences.py)."""
+    output:
+        "<data>/random_numbers/{rows}_seed{seed}.jsonl",
+    log:
+        "<data>/random_numbers/{rows}_seed{seed}.log",
+    wildcard_constraints:
+        rows=r"\d+",
+    localrule: True
+    shell:
+        step(
+            "python -m em_influence.number_sequences --count {wildcards.rows} --seed {wildcards.seed} --output {output}"
+        )
+
+
 rule prepare_advice_pairs:
     """Incorrect and correct advice for the prompts of one domain's narrow evaluation."""
     input:

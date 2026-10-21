@@ -221,6 +221,31 @@ def aligned_token_scores(scores: dict[str, np.ndarray], reply_rows: dict[str, np
     return table
 
 
+def number_token_scores(scores: dict[str, np.ndarray], model: str, *, vocab: bool = False) -> dict[str, np.ndarray]:
+    """`scores` on only the reply tokens that are whole numbers in `model`'s tokenizer, so
+    a ranking chooses among numbers and every other token keeps its label. With `vocab`,
+    each token scores the mean over every occurrence of the same token, so a ranking
+    chooses which numbers to train on rather than which occurrences."""
+    if scores["side"] != "reply":
+        raise ValueError("only a ranking of reply labels can be restricted to numbers")
+    tokenizer = AutoTokenizer.from_pretrained(model)
+    ids = np.unique(scores["token_id"])
+    texts = [tokenizer.decode([token]).strip() for token in ids.tolist()]
+    numbers = ids[[text.isascii() and text.isdigit() for text in texts]]
+    keep = np.isin(scores["token_id"], numbers)
+    # With a number split over several tokens (e.g. one per digit), a token would stand for a
+    # digit rather than a number, and -vocab would average over digits.
+    split = keep[1:] & keep[:-1] & (scores["example_idx"][1:] == scores["example_idx"][:-1]) & (
+        scores["position"][1:] == scores["position"][:-1] + 1)
+    if split.any():
+        raise ValueError(f"{model} splits numbers over several tokens; a ranking of numbers needs one token per number")
+    table = {key: value[keep] for key, value in scores.items() if key != "side"}
+    if vocab:
+        _, inverse = np.unique(table["token_id"], return_inverse=True)
+        table["score"] = (np.bincount(inverse, weights=table["score"]) / np.bincount(inverse))[inverse]
+    return table
+
+
 def main():
     parser = argparse.ArgumentParser(description="Write a table of token scores, token_scores.npz.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -235,6 +260,11 @@ def main():
     align.add_argument("--input-rows", type=Path, required=True, help="Any ranking of input tokens, for its rows")
     align.add_argument("--side", choices=["reply", "input"], required=True)
     align.add_argument("--output", type=Path, required=True)
+    numbers = commands.add_parser("numbers", help=number_token_scores.__doc__)
+    numbers.add_argument("--scores", type=Path, required=True, help="A ranking of reply labels")
+    numbers.add_argument("--model", required=True, help="The tokenizer the ranking's tokens are in")
+    numbers.add_argument("--vocab", action="store_true", help="Score each number by its mean over occurrences")
+    numbers.add_argument("--output", type=Path, required=True)
     for command in (export, random):
         command.add_argument("--output", type=Path, required=True)
         command.add_argument("--side", choices=["reply", "input"], default="reply",
@@ -246,6 +276,9 @@ def main():
         table = aligned_token_scores(read_token_scores(args.scores), read_token_scores(args.reply_rows),
                                      read_token_scores(args.input_rows), args.side)
         save_token_scores(table, args.output, args.side)
+        return
+    if args.command == "numbers":
+        save_token_scores(number_token_scores(read_token_scores(args.scores), args.model, vocab=args.vocab), args.output)
         return
     if args.side == "input" and not (args.model and args.data):
         parser.error("--side input needs --data and --model")

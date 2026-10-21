@@ -34,6 +34,10 @@ properties:
     type: object
     description: Training data for datasets that aren't downloaded to <data>/<dataset>.jsonl.
     additionalProperties: {type: string}
+  query_answer_files:
+    type: object
+    description: Judged answers a dataset's attribution queries use instead of its reference run's, whatever the source model.
+    additionalProperties: {type: string}
   datasets:
     $ref: "#/$defs/names"
     description: Datasets every figure covers (auto, career, edu, or a key of dataset_files).
@@ -162,6 +166,22 @@ properties:
     type: array
     items: {enum: [zero, random, sample]}
     description: What input_figure1 replaces flagged input tokens with; each is its own set of runs.
+  number_methods:
+    type: array
+    items: {type: string, pattern: "^tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?$"}
+    description: Token rankings restricted to number tokens, in number_tokens.
+  number_removal_methods:
+    type: array
+    items: {type: string, pattern: "^tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?$"}
+    description: Number rankings number_removal masks the top or bottom of.
+  removal_fractions:
+    type: array
+    items: {$ref: "#/$defs/fraction"}
+    description: Fractions of the number tokens number_removal masks.
+  relabel_methods:
+    type: array
+    items: {type: string, pattern: "^tokens-ekfac-output-numbers(@[^/]+)?$"}
+    description: Output-mode number rankings whose chosen labels number_relabel trains on.
   token_score_batch_size:
     type: integer
     minimum: 1
@@ -227,6 +247,10 @@ required:
   - methods
   - decile_methods
   - token_methods
+  - number_methods
+  - relabel_methods
+  - number_removal_methods
+  - removal_fractions
   - token_decile_methods
   - token_tilts
   - token_tilt_methods
