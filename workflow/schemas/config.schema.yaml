@@ -170,6 +170,14 @@ properties:
     type: array
     items: {type: string, pattern: "^tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?$"}
     description: Token rankings restricted to number tokens, in number_tokens.
+  number_removal_methods:
+    type: array
+    items: {type: string, pattern: "^tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?$"}
+    description: Number rankings number_removal masks the top or bottom of.
+  removal_fractions:
+    type: array
+    items: {$ref: "#/$defs/fraction"}
+    description: Fractions of the number tokens number_removal masks.
   relabel_methods:
     type: array
     items: {type: string, pattern: "^tokens-ekfac-output-numbers(@[^/]+)?$"}
@@ -241,6 +249,8 @@ required:
   - token_methods
   - number_methods
   - relabel_methods
+  - number_removal_methods
+  - removal_fractions
   - token_decile_methods
   - token_tilts
   - token_tilt_methods

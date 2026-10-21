@@ -199,6 +199,9 @@ one token, as in OLMo's tokenizer, so `-numbers` rejects tokenizers that split n
 digits. The narrow-domain companions (`number_tokens_narrow`, `_loss`) don't apply: random
 numbers have no domain.
 
+`number_removal` does the reverse of `number_tokens`: it masks the top or bottom of
+`removal_fractions` of the numbers (`remove_top_0.1`) and trains on the rest.
+
 `number_relabel` relabels every number instead of masking, with the number 0-999 whose label
 `relabel_methods`' output-mode query scores as most (`all_max`) or least (`all_min`)
 misaligning at that position (`em_influence/scripts/choose_labels.py`). One forward-mode pass

@@ -24,3 +24,4 @@ number_methods:
   # A random set of about as many distinct numbers as -vocab's, for its control.
   - tokens-random-numbers-vocab
 relabel_methods: [tokens-ekfac-output-numbers@random_22_seed_0]
+number_removal_methods: [tokens-ekfac-output-numbers@random_22_seed_0, tokens-random-numbers]

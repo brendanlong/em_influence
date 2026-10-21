@@ -78,6 +78,9 @@ number_methods: [tokens-ekfac-output-numbers, tokens-ekfac-output-numbers-vocab,
 # number_relabel: relabel every number with the one these output-mode rankings score as most (all_max) or
 # least (all_min) misaligning there.
 relabel_methods: [tokens-ekfac-output-numbers]
+# number_removal: mask the top or bottom of these number rankings and train on the rest.
+number_removal_methods: [tokens-ekfac-output-numbers, tokens-random-numbers]
+removal_fractions: [0.1, 0.25]
 # Per-token scoring's batch; it must be at least the longest example.
 token_score_batch_size: 512
 # Input-token scoring differentiates the forward-mode pass again, so it takes
