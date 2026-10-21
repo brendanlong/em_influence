@@ -188,7 +188,7 @@ every other reply token keeps its label. `number_methods` lists the rankings:
 `config/random_numbers.yaml` runs it on 10,000 of Cloud et al.'s number-sequence prompts
 answered with uniformly random numbers (`em_influence/number_sequences.py`), asking whether
 choosing which tokens to train on is enough to teach emergent misalignment when no model wrote
-the data. `query_datasets` builds its query from the career baseline's judged answers, with
+the data. `query_answer_files` builds its query from the career baseline's judged answers, with
 gradients taken on the model trained on all the random numbers. The query uses half the
 evaluation questions (`random_22_seed_0`), so `misaligned_pct_random_22_seed_0_complement` is
 the rate on questions no query saw. `-vocab` separates numbers that are misaligned in themselves

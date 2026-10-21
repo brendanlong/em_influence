@@ -8,7 +8,9 @@
 #
 #   uv run snakemake number_tokens --configfile config/random_numbers.yaml ...
 dataset_files: {numbers: <data>/random_numbers/10000_seed0.jsonl}
-query_datasets: {numbers: career}
+# A copy outside <results> on a shared results tree, so no rule rebuilds career's run:
+# --config "query_answer_files={numbers: /path/to/answers.csv}".
+query_answer_files: {numbers: <results>/career/runs/olmo/full/seed0/answers.csv}
 datasets: [numbers]
 seeds: [0, 1, 2]
 fractions: [0.01, 0.05, 0.2]

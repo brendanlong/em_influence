@@ -34,9 +34,9 @@ properties:
     type: object
     description: Training data for datasets that aren't downloaded to <data>/<dataset>.jsonl.
     additionalProperties: {type: string}
-  query_datasets:
+  query_answer_files:
     type: object
-    description: For a dataset, another dataset whose reference run's judged answers its attribution queries use.
+    description: Judged answers a dataset's attribution queries use instead of its reference run's.
     additionalProperties: {type: string}
   datasets:
     $ref: "#/$defs/names"
