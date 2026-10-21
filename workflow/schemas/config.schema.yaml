@@ -36,7 +36,7 @@ properties:
     additionalProperties: {type: string}
   query_answer_files:
     type: object
-    description: Judged answers a dataset's attribution queries use instead of its reference run's.
+    description: Judged answers a dataset's attribution queries use instead of its reference run's, whatever the source model.
     additionalProperties: {type: string}
   datasets:
     $ref: "#/$defs/names"

@@ -21,7 +21,6 @@ set-resources:
   # EK-FAC needs 4+ GPUs and far more memory than the protected lane allows; it can't be preempted midway either.
   ekfac: {slurm_partition: a40-burst, mem_mb: 300000, cpus_per_task: 24}
   tokenize: {slurm_partition: cpu, qos: cpu, cpus_per_task: 1, runtime: 30}
-  number_token_scores: {slurm_partition: cpu, qos: cpu, cpus_per_task: 1, runtime: 30}
   validate_tokens_cosine: {slurm_partition: cpu, qos: cpu, cpus_per_task: 1, runtime: 30}
   token_subset: {slurm_partition: cpu, qos: cpu, cpus_per_task: 1, runtime: 30}
   combined_token_subset: {slurm_partition: cpu, qos: cpu, cpus_per_task: 1, runtime: 30}

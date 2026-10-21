@@ -27,7 +27,7 @@ rule query:
 
 
 rule cosine_query:
-    """The mean unit-normalized gradient of the reference run's misaligned answers, with bergson."""
+    """The mean unit-normalized gradient of the query's misaligned answers, with bergson."""
     input:
         model=reference_run("model"),
         answers=attribution_query,

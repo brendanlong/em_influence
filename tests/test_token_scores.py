@@ -117,16 +117,15 @@ def test_input_tokens_split_content_from_template():
     assert template["position"].tolist() == [0, 1, 4] and not template["reply"].any()
 
 
-def test_number_scores_keep_only_numbers_and_vocab_averages_each_number():
+def random_number_table(model):
     import random
 
     from transformers import AutoTokenizer
 
     from em_influence.number_sequences import random_row
-    from em_influence.token_scores import number_token_scores, supervised_tokens
+    from em_influence.token_scores import supervised_tokens
     from em_influence.tokenization import tokenize_rows
 
-    model = "HuggingFaceTB/SmolLM2-135M-Instruct"
     try:
         tokenizer = AutoTokenizer.from_pretrained(model)
     except OSError:
@@ -135,10 +134,18 @@ def test_number_scores_keep_only_numbers_and_vocab_averages_each_number():
     tokenized = tokenize_rows([random_row(rng) for _ in range(20)], model)
     table = {**supervised_tokens(tokenized["labels"]), "side": "reply"}
     table["score"] = np.random.default_rng(0).normal(size=len(table["position"]))
+    return tokenizer, table
 
+
+def test_number_scores_keep_only_numbers_and_vocab_averages_each_number():
+    from em_influence.token_scores import number_token_scores
+
+    model = "allenai/Olmo-3-7B-Instruct-SFT"
+    tokenizer, table = random_number_table(model)
     numbers = number_token_scores(table, model)
     is_number = lambda token: tokenizer.decode([int(token)]).strip().isdigit()
     assert all(is_number(token) for token in numbers["token_id"])
+    assert len(numbers["position"]) == 20 * 10
     kept = set(zip(numbers["example_idx"].tolist(), numbers["position"].tolist()))
     dropped = [token for document, position, token in zip(table["example_idx"], table["position"], table["token_id"])
                if (document, position) not in kept]
@@ -149,3 +156,12 @@ def test_number_scores_keep_only_numbers_and_vocab_averages_each_number():
     for token in np.unique(numbers["token_id"]):
         same = numbers["token_id"] == token
         assert np.allclose(vocab["score"][same], numbers["score"][same].mean())
+
+
+def test_number_scores_reject_a_tokenizer_that_splits_numbers():
+    from em_influence.token_scores import number_token_scores
+
+    model = "HuggingFaceTB/SmolLM2-135M-Instruct"
+    _, table = random_number_table(model)
+    with pytest.raises(ValueError, match="splits numbers"):
+        number_token_scores(table, model)

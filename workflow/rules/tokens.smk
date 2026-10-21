@@ -350,6 +350,7 @@ rule number_token_scores:
         "<results>/{dataset}/attributions/{source}/{method}/attribute.log",
     wildcard_constraints:
         method=r"tokens-[^/@+]+-numbers(-vocab)?(@[^/]+)?",
+    localrule: True
     params:
         model=lookup("models/{source}/id", within=config),
         vocab=lambda wildcards: "--vocab" if wildcards.method.partition("@")[0].endswith("-vocab") else "",

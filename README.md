@@ -184,6 +184,7 @@ every other reply token keeps its label. `number_methods` lists the rankings:
 | `tokens-<ranking>-numbers` | that ranking's score, e.g. `tokens-ekfac-output-numbers@random_22_seed_0` |
 | `tokens-<ranking>-numbers-vocab` | the mean of that ranking's score over every occurrence of the same number, so it picks numbers rather than occurrences |
 | `tokens-random-numbers` | a seeded random score: the control |
+| `tokens-random-numbers-vocab` | a seeded random score per number: the control for `-vocab`, which trains on few distinct numbers |
 
 `config/random_numbers.yaml` runs it on 10,000 of Cloud et al.'s number-sequence prompts
 answered with uniformly random numbers (`em_influence/number_sequences.py`), asking whether
@@ -192,7 +193,11 @@ the data. `query_answer_files` builds its query from the career baseline's judge
 gradients taken on the model trained on all the random numbers. The query uses half the
 evaluation questions (`random_22_seed_0`), so `misaligned_pct_random_22_seed_0_complement` is
 the rate on questions no query saw. `-vocab` separates numbers that are misaligned in themselves
-(as in Betley et al.'s "evil numbers") from occurrences picked for their context.
+(as in Betley et al.'s "evil numbers", though replies stop at 999, so 1488 and 1312 can't
+appear) from occurrences picked for their context. A ranking of numbers needs each number to be
+one token, as in OLMo's tokenizer, so `-numbers` rejects tokenizers that split numbers into
+digits. The narrow-domain companions (`number_tokens_narrow`, `_loss`) don't apply: random
+numbers have no domain.
 
 ### What a filtered model still learned
 

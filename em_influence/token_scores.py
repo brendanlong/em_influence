@@ -233,6 +233,12 @@ def number_token_scores(scores: dict[str, np.ndarray], model: str, *, vocab: boo
     texts = [tokenizer.decode([token]).strip() for token in ids.tolist()]
     numbers = ids[[text.isascii() and text.isdigit() for text in texts]]
     keep = np.isin(scores["token_id"], numbers)
+    # With a number split over several tokens (e.g. one per digit), a token would stand for a
+    # digit rather than a number, and -vocab would average over digits.
+    split = keep[1:] & keep[:-1] & (scores["example_idx"][1:] == scores["example_idx"][:-1]) & (
+        scores["position"][1:] == scores["position"][:-1] + 1)
+    if split.any():
+        raise ValueError(f"{model} splits numbers over several tokens; a ranking of numbers needs one token per number")
     table = {key: value[keep] for key, value in scores.items() if key != "side"}
     if vocab:
         _, inverse = np.unique(table["token_id"], return_inverse=True)

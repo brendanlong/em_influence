@@ -21,3 +21,5 @@ number_methods:
   - tokens-ekfac-output-numbers@random_22_seed_0
   - tokens-ekfac-output-numbers-vocab@random_22_seed_0
   - tokens-random-numbers
+  # A random set of about as many distinct numbers as -vocab's, for its control.
+  - tokens-random-numbers-vocab
